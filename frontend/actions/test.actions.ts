@@ -1,6 +1,6 @@
 "use server";
 
-import dbConnect from "../lib/mongooseConnect";
+import dbConnect from "@/lib/mongooseConnect";
 
 type ConnectionResult =
   | { success: true; message: string; data: any }
