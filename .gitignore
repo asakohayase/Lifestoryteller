@@ -12,6 +12,9 @@
 # next.js
 /.next/
 /out/
+cache/
+
+
 
 # production
 /build
@@ -37,3 +40,7 @@ yarn-error.log*
 next-env.d.ts
 
 .vscode
+
+# Ignore npm lock file
+package-lock.json
+
