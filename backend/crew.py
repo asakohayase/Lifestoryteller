@@ -19,13 +19,22 @@ class FamilyBookCrew:
         agents = FamilyBookAgents()
         # tasks =FamilyBookTasks(job_id=self.job_id)
 
-        manager_agent = agents.manager_agent()
+        # manager_agent = agents.manager_agent()
         image_analysis_agent = agents.image_analysis_agent()
-        search_agent = agents.search_agentt()
+        # description_generation_agent = agents.description_generation_agent
+        album_creation_agent = agents.album_creation_agent()
+
+        analyze_image_task = tasks.analyze_image_task()
+        generate_description_task = tasks.generate_description_task()
+        create_album_task = tasks.create_album_task()
 
         self.crew = Crew(
-            agents=[manager_agent, image_analysis_agent, search_agent],
-            tasks=[],
+            agents=[
+                image_analysis_agent,
+                album_creation_agent,
+                # description_generation_agent,
+            ],
+            tasks=[analyze_image_task, generate_description_task, create_album_task],
             verbose=2,
         )
 
