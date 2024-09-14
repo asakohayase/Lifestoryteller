@@ -3,7 +3,6 @@ name = "backend"
 version = "0.1.0"
 description = ""
 authors = ["Asako Hayase <asako.ch.ha@gmail.com>"]
-readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.12,<=3.13"
@@ -12,6 +11,8 @@ isort = "^5.13.2"
 flake8 = "^7.1.1"
 crewai = "^0.55.2"
 logger = "^1.4"
+langchain = ">=0.2,<=0.3"
+pillow = "^10.4.0"
 
 
 [build-system]
