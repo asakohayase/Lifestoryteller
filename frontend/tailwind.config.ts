@@ -10,11 +10,11 @@ const config: Config = {
   theme: {
   	extend: {
   		colors: {
-			navy: '#1B264F',
-			royalBlue: '#274690',
-			periwinkle: '#576CA8',
-			darkGray: '#302B27',
-			offWhite: '#F5F3F5',
+			blue1: '#1B264F',
+			blue2: '#274690',
+			blue3: '#576CA8',
+			gray1: '#302B27',
+			white1: '#F5F3F5',
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
