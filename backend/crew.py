@@ -1,41 +1,51 @@
-from datetime import datetime
-from typing import Callable
-from langchain_openai import ChatOpenAI
-from agents import FamilyBookAgents
-from backend import tasks
+import logging
+
+from backend.agents import FamilyBookAgents
 
 from crewai import Crew
 
-from backend.job_manager import append_event
+
+from backend.tasks import FamilyBookTasks
+from backend.utils.job_manager import append_event
+
+# logging.basicConfig(level=logging.DEBUG)
+# logger = logging.getLogger(__name__)
 
 
 class FamilyBookCrew:
-    def __init__(self, job_id):
+    def __init__(self, job_id, qdrant_client):
         self.job_id = job_id
-        self.crew = None
-        self.llm = ChatOpenAI(model="gpt-4-turbo-preview")
+        self.qdrant_client = qdrant_client
+        self.agents = FamilyBookAgents(qdrant_client)
+        self.tasks = FamilyBookTasks(
+            job_id=self.job_id, qdrant_client=self.qdrant_client
+        )
 
-    def setup_crew(self):
-        agents = FamilyBookAgents()
-        # tasks =FamilyBookTasks(job_id=self.job_id)
+    def setup_crew(self, image_data: bytes = None, theme_input: str = None):
+        image_analysis_agent = self.agents.image_analysis_agent()
+        album_creation_agent = self.agents.album_creation_agent()
 
-        # manager_agent = agents.manager_agent()
-        image_analysis_agent = agents.image_analysis_agent()
-        # description_generation_agent = agents.description_generation_agent
-        album_creation_agent = agents.album_creation_agent()
+        crew_tasks = []
+        agents = []
 
-        analyze_image_task = tasks.analyze_image_task()
-        generate_description_task = tasks.generate_description_task()
-        create_album_task = tasks.create_album_task()
+        if image_data:
+            image_analysis_agent = self.agents.image_analysis_agent()
+            analyze_image_task = self.tasks.analyze_image_task(image_analysis_agent)
+            crew_tasks.append(analyze_image_task)
+            agents.append(image_analysis_agent)
+
+        if theme_input:
+            album_creation_agent = self.agents.album_creation_agent()
+            create_album_task = self.tasks.create_album_task(
+                album_creation_agent, theme_input
+            )
+            crew_tasks.append(create_album_task)
+            agents.append(album_creation_agent)
 
         self.crew = Crew(
-            agents=[
-                image_analysis_agent,
-                album_creation_agent,
-                # description_generation_agent,
-            ],
-            tasks=[analyze_image_task, generate_description_task, create_album_task],
-            verbose=2,
+            agents=agents,
+            tasks=crew_tasks,
+            verbose=True,
         )
 
     def kickoff(self):
