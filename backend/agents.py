@@ -1,12 +1,19 @@
-from typing import List
 from crewai import Agent
 from langchain_openai import ChatOpenAI
+
+from backend.tools import DatabaseTool, ImageAnalysisTool, ThemeBasedImageSearchTool
 
 
 class FamilyBookAgents:
 
-    def __init__(self):
+    def __init__(self, qdrant_client):
         self.llm = ChatOpenAI(model="gpt-4-turbo-preview")
+        self.image_analysis_tool = ImageAnalysisTool(qdrant_client)
+        print(
+            f"ImageAnalysisTool created with qdrant_client: {getattr(self.image_analysis_tool, 'qdrant_client', 'Not found')}"
+        )
+        self.vector_store_tool = ThemeBasedImageSearchTool(qdrant_client)
+        self.database_tool = DatabaseTool(qdrant_client)
 
     # def manager_agent(self) -> Agent:
     #     return Agent(
@@ -25,6 +32,9 @@ class FamilyBookAgents:
     #     )
 
     def image_analysis_agent(self) -> Agent:
+        print(
+            f"Creating image_analysis_agent. ImageAnalysisTool qdrant_client: {getattr(self.image_analysis_tool, 'qdrant_client', 'Not found')}"
+        )
         return Agent(
             role="Image Analysis Specialist",
             goal=f"""
@@ -35,9 +45,9 @@ class FamilyBookAgents:
             Your skills allow you to extract intricate details from photos, recognizing faces, 
             objects, and even estimating the time period based on visual cues.""",
             llm=self.llm,
-            tools=[],
+            tools=[self.image_analysis_tool],
             verbose=True,
-            allow_delegation=True,
+            allow_delegation=False,
         )
 
     # def description_generation_agent(self) -> Agent:
@@ -56,7 +66,7 @@ class FamilyBookAgents:
     #         llm=self.llm,
     #         tools=[],  # You may want to add specific tools for description generation if needed
     #         verbose=True,
-    #         allow_delegation=True,
+    #        allow_delegation=False,
     #     )
 
     def album_creation_agent(self) -> Agent:
@@ -77,7 +87,7 @@ class FamilyBookAgents:
             of the user’s vision. Whether it’s a wedding, a vacation, or a personal portfolio, the Album Creation Specialist 
             is dedicated to creating albums that resonate on a personal and artistic level.""",
             llm=self.llm,
-            tools=[],
+            tools=[self.vector_store_tool, self.database_tool],
             verbose=True,
-            allow_delegation=True,
+            allow_delegation=False,
         )

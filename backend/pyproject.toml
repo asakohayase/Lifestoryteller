@@ -13,6 +13,9 @@ crewai = "^0.55.2"
 logger = "^1.4"
 langchain = ">=0.2,<=0.3"
 pillow = "^10.4.0"
+qdrant-client = "^1.11.1"
+torch = "^2.4.1"
+transformers = "^4.44.2"
 
 
 [build-system]
