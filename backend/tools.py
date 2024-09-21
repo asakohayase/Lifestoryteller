@@ -1,75 +1,136 @@
+import base64
+import logging
+import os
+from typing import Any, List
+import uuid
 from PIL import Image
 import io
-import numpy as np
+from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, VectorParams
+from qdrant_client.http.models import Distance, VectorParams, Batch
+from langchain.tools import BaseTool
+import torch
+from transformers import CLIPProcessor, CLIPModel
+from qdrant_client.http import models
+
+from backend.utils.log_config import setup_logger
+
+
+logger = logging.getLogger(__name__)
+
 
 # Qdrant setup
 qdrant_client = QdrantClient("localhost", port=6333)
 collection_name = "family_book_images"
 
-# Ensure the collection exists
 try:
-    qdrant_client.get_collection(collection_name)
-except:
+    collection_info = qdrant_client.get_collection(collection_name)
+    if collection_info.config.params.vectors.size != 512:
+        qdrant_client.recreate_collection(
+            collection_name=collection_name,
+            vectors_config=VectorParams(size=512, distance=Distance.COSINE),
+        )
+except Exception:
     qdrant_client.create_collection(
         collection_name=collection_name,
-        vectors_config=VectorParams(size=256, distance=Distance.COSINE),
+        vectors_config=VectorParams(size=512, distance=Distance.COSINE),
     )
 
 
-class ImageAnalysisTool:
-    name: str = "image_analysis"
-    description: str = (
-        "Extracts metadata and creates a simple feature vector for an image"
+class ImageUploadInput(BaseModel):
+    filename: str = Field(..., description="Name of the image file to upload")
+
+
+class ImageUploadTool(BaseTool):
+    name: str = "image_upload"
+    description: str = "Processes and stores image embeddings in Qdrant"
+    args_schema: type[BaseModel] = ImageUploadInput
+    qdrant_client: QdrantClient = Field(
+        description="Qdrant client for vector operations"
+    )
+    model: Any = Field(default=None, description="CLIP model for image processing")
+    processor: Any = Field(
+        default=None, description="CLIP processor for image preprocessing"
     )
 
-    def analyze_image(self, image_data: bytes) -> dict:
-        img = Image.open(io.BytesIO(image_data))
-        exif_data = img._getexif() if hasattr(img, "_getexif") else None
-        img_gray = img.convert("L").resize((16, 16))
-        feature_vector = np.array(img_gray).flatten() / 255.0
+    def __init__(self, qdrant_client):
+        super().__init__()
+        self.qdrant_client = qdrant_client
+        self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+        self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-        return {
-            "width": img.width,
-            "height": img.height,
-            "exif_data": exif_data,
-            "feature_vector": feature_vector.tolist(),
-        }
+    def _run(self, filename: str) -> str:
+        try:
+            # Load the image file
+            image_path = os.path.join("dummy", filename)
+            with Image.open(image_path) as image:
+                # Process the image
+                inputs = self.processor(images=image, return_tensors="pt")
+                with torch.no_grad():
+                    image_embedding = (
+                        self.model.get_image_features(**inputs).numpy().tolist()
+                    )
 
+            # Generate a unique ID for the image
+            image_id = str(uuid.uuid4())
 
-class VectorStoreTool:
-    name: str = "vector_store"
-    description: str = "Stores image vectors for similarity search"
+            # Store the embedding in Qdrant
+            self.qdrant_client.upsert(
+                collection_name="family_book_images",
+                points=Batch(
+                    ids=[image_id],
+                    vectors=image_embedding,
+                    payloads=[{"image_id": image_id, "filename": filename}],
+                ),
+            )
 
-    def store_vector(self, image_id: str, vector: list[float]) -> str:
-        qdrant_client.upsert(
-            collection_name=collection_name, points=[{"id": image_id, "vector": vector}]
-        )
-        return f"Vector stored for image {image_id}"
-
-    def search_similar(self, query_vector: list[float], limit: int = 10) -> list[str]:
-        search_result = qdrant_client.search(
-            collection_name=collection_name, query_vector=query_vector, limit=limit
-        )
-        return [hit.id for hit in search_result]
-
-
-class DatabaseTool:
-    name: str = "database"
-    description: str = "Stores and retrieves image metadata"
-
-    def store_image_metadata(self, metadata: dict) -> str:
-        qdrant_client.upsert(
-            collection_name=collection_name,
-            points=[{"id": metadata["id"], "payload": metadata}],
-        )
-        return metadata["id"]
-
-    def get_image_metadata(self, image_id: str) -> dict:
-        result = qdrant_client.retrieve(collection_name=collection_name, ids=[image_id])
-        return result[0].payload if result else None
+            return f"Image uploaded and stored with ID: {image_id}"
+        except Exception as e:
+            return f"Error uploading image: {str(e)}"
 
 
-def get_tools():
-    return [ImageAnalysisTool(), VectorStoreTool(), DatabaseTool()]
+class ImageRetrievalInput(BaseModel):
+    text_query: str = Field(..., description="Text description for image retrieval")
+
+
+class ImageRetrievalTool(BaseTool):
+    name: str = "image_retrieval"
+    description: str = "Retrieves similar images based on text descriptions"
+    args_schema: type[BaseModel] = ImageRetrievalInput
+    qdrant_client: QdrantClient = Field(
+        description="Qdrant client for vector operations"
+    )
+    model: Any = Field(default=None, description="CLIP model for text processing")
+    processor: Any = Field(
+        default=None, description="CLIP processor for text preprocessing"
+    )
+
+    def __init__(self, qdrant_client):
+        super().__init__()
+        self.qdrant_client = qdrant_client
+        self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+        self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+    def _run(self, text_query: str) -> List[str]:
+        try:
+            inputs = self.processor(
+                text=[text_query], return_tensors="pt", padding=True
+            )
+
+            with torch.no_grad():
+                text_embedding = self.model.get_text_features(**inputs).numpy().tolist()
+
+            search_results = self.qdrant_client.search(
+                collection_name="family_book_images",
+                query_vector=text_embedding[0],
+                limit=10,
+            )
+
+            return [result.payload["image_id"] for result in search_results]
+        except Exception as e:
+            logger.error(f"Error retrieving images: {str(e)}", exc_info=True)
+            return []
+
+
+def get_tools(qdrant_client):
+    return [ImageUploadTool(qdrant_client), ImageRetrievalTool(qdrant_client)]
