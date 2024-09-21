@@ -1,12 +1,36 @@
-from typing import List
 from crewai import Agent
 from langchain_openai import ChatOpenAI
 
+from backend.tools import ImageRetrievalTool, ImageUploadTool
+
 
 class FamilyBookAgents:
-
-    def __init__(self):
+    def __init__(self, qdrant_client):
         self.llm = ChatOpenAI(model="gpt-4-turbo-preview")
+        self.image_upload_tool = ImageUploadTool(qdrant_client)
+        self.image_retrieval_tool = ImageRetrievalTool(qdrant_client)
+
+    def image_upload_agent(self) -> Agent:
+        return Agent(
+            role="Image Upload Specialist",
+            goal="Process and upload family photos efficiently and accurately.",
+            backstory="You are an expert in digital image processing and database management. Your role is to ensure that all family photos are properly processed and securely stored in the database.",
+            llm=self.llm,
+            tools=[self.image_upload_tool],
+            verbose=True,
+            allow_delegation=False,
+        )
+
+    def album_creation_agent(self) -> Agent:
+        return Agent(
+            role="Album Creation Specialist",
+            goal="Create personalized photo albums based on user descriptions, selecting the most relevant and meaningful images.",
+            backstory="You are an AI with a keen eye for visual storytelling and a deep understanding of human emotions. Your expertise lies in interpreting user descriptions and curating photo collections that capture the essence of their memories.",
+            llm=self.llm,
+            tools=[self.image_retrieval_tool],
+            verbose=True,
+            allow_delegation=False,
+        )
 
     # def manager_agent(self) -> Agent:
     #     return Agent(
@@ -24,22 +48,6 @@ class FamilyBookAgents:
     #         allow_delegation=True,
     #     )
 
-    def image_analysis_agent(self) -> Agent:
-        return Agent(
-            role="Image Analysis Specialist",
-            goal=f"""
-                Analyze family photos to extract relevant information such as people, objects, locations, and estimated time periods.
-                Provide detailed descriptions and potential context for each image.
-                """,
-            backstory="""You are an AI expert specializing in computer vision and image analysis. 
-            Your skills allow you to extract intricate details from photos, recognizing faces, 
-            objects, and even estimating the time period based on visual cues.""",
-            llm=self.llm,
-            tools=[],
-            verbose=True,
-            allow_delegation=True,
-        )
-
     # def description_generation_agent(self) -> Agent:
     #     return Agent(
     #         role="Description Generation Specialist",
@@ -56,28 +64,5 @@ class FamilyBookAgents:
     #         llm=self.llm,
     #         tools=[],  # You may want to add specific tools for description generation if needed
     #         verbose=True,
-    #         allow_delegation=True,
+    #        allow_delegation=False,
     #     )
-
-    def album_creation_agent(self) -> Agent:
-        return Agent(
-            role="Album Creation Specialist",
-            goal=f"""The goal of the Album Creation Specialist is to create personalized albums based on user input. 
-                The agent should understand the user's natural language descriptions and use vector search 
-                to gather a maximum of 10 highly relevant images that align with the input. The agent’s goal is 
-                to deliver a visually coherent, custom-tailored album, ensuring that the selected images reflect 
-                the user's preferences and emotional tone. The agent should aim for accuracy, diversity, and creativity 
-                in the image selection process.
-                """,
-            backstory="""The Album Creation Specialist was designed by a team of digital media and artificial intelligence experts 
-            to help users effortlessly curate personal memories and experiences. Initially developed to assist in 
-            professional photography projects, the agent’s ability to interpret human language and convert it into 
-            aesthetically pleasing visual collections has evolved over time. It leverages cutting-edge natural 
-            language processing and image vector search technologies to ensure that every album is a unique reflection 
-            of the user’s vision. Whether it’s a wedding, a vacation, or a personal portfolio, the Album Creation Specialist 
-            is dedicated to creating albums that resonate on a personal and artistic level.""",
-            llm=self.llm,
-            tools=[],
-            verbose=True,
-            allow_delegation=True,
-        )
