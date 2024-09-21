@@ -21,32 +21,25 @@ class FamilyBookCrew:
             job_id=self.job_id, qdrant_client=self.qdrant_client
         )
 
-    def setup_crew(self, image_data: bytes = None, theme_input: str = None):
-        image_analysis_agent = self.agents.image_analysis_agent()
-        album_creation_agent = self.agents.album_creation_agent()
-
-        crew_tasks = []
-        agents = []
-
+    def setup_crew(self, image_data=None, theme_input=None):
         if image_data:
-            image_analysis_agent = self.agents.image_analysis_agent()
-            analyze_image_task = self.tasks.analyze_image_task(image_analysis_agent)
-            crew_tasks.append(analyze_image_task)
-            agents.append(image_analysis_agent)
-
-        if theme_input:
+            image_upload_agent = self.agents.image_upload_agent()
+            upload_image_task = self.tasks.upload_image_task(
+                image_upload_agent, image_data
+            )
+            self.crew = Crew(
+                agents=[image_upload_agent], tasks=[upload_image_task], verbose=True
+            )
+        elif theme_input:
             album_creation_agent = self.agents.album_creation_agent()
             create_album_task = self.tasks.create_album_task(
                 album_creation_agent, theme_input
             )
-            crew_tasks.append(create_album_task)
-            agents.append(album_creation_agent)
-
-        self.crew = Crew(
-            agents=agents,
-            tasks=crew_tasks,
-            verbose=True,
-        )
+            self.crew = Crew(
+                agents=[album_creation_agent], tasks=[create_album_task], verbose=True
+            )
+        else:
+            raise ValueError("Either image_data or theme_input must be provided")
 
     def kickoff(self):
         if not self.crew:
