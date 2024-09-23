@@ -1,7 +1,7 @@
 from crewai import Agent
 from langchain_openai import ChatOpenAI
 
-from backend.tools import ImageRetrievalTool, ImageUploadTool
+from tools import ImageRetrievalTool, ImageUploadTool
 
 
 class FamilyBookAgents:
