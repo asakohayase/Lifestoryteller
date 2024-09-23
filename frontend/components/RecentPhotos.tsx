@@ -2,7 +2,7 @@ import { Image as ImageIcon } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card"
 
 interface RecentPhotosProps {
-  photos: null[];
+  photos: string[];
 }
 
 export default function RecentPhotos({ photos }: RecentPhotosProps) {

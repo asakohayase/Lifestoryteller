@@ -1,48 +1,60 @@
-"use client"
+"use client";
 
-import React, { ChangeEvent, FormEvent, useState } from 'react';
+import React, { useState } from 'react';
 import UploadPhoto from '@/components/UploadPhoto';
 import GenerateAlbum from '@/components/GenerateAlbum';
 import RecentPhotos from '@/components/RecentPhotos';
 import AlbumList from '@/components/AlbumList';
+import { generateAlbum, uploadPhoto } from '@/utils/api';
+// import { generateAlbum, uploadPhoto } from './actions';
 
 const FamilyPhotoAlbum = () => {
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [albumTheme, setAlbumTheme] = useState('');
+  const [recentPhotos, setRecentPhotos] = useState<string[]>([]);
+  const [albums, setAlbums] = useState<{ name: string; photoCount: number }[]>([]);
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      // setUploadedFile(e.target.files[0]);
+  // const handlePhotoUpload = async (formData: FormData) => {
+  //   try {
+  //     const result = await uploadPhoto(formData);
+  //     setRecentPhotos(prevPhotos => [...prevPhotos, result.imageId]);
+  //   } catch (error) {
+  //     console.error('Error uploading image:', error);
+  //   }
+  // };
+
+  // const handleAlbumSubmit = async (theme: string) => {
+  //   try {
+  //     const result = await generateAlbum(theme);
+  //     setAlbums(prevAlbums => [...prevAlbums, { name: result.album_name, photoCount: result.image_ids.length }]);
+  //   } catch (error) {
+  //     console.error('Error generating album:', error);
+  //   }
+  // };
+
+  const handlePhotoUpload = (imageId: string) => {
+    setRecentPhotos(prevPhotos => [...prevPhotos, imageId]);
+  };
+
+  const handleAlbumSubmit = async (theme: string) => {
+    try {
+      console.log("Handling album submit in page.tsx");
+      const result = await generateAlbum(theme);
+      if (result.album_name && result.image_ids) {
+        setAlbums(prevAlbums => [...prevAlbums, { name: result.album_name, photoCount: result.image_ids.length }]);
+      } else {
+        console.error("Unexpected album generation result:", result);
+      }
+    } catch (error) {
+      console.error('Error generating album:', error);
     }
   };
-  
-  const handleThemeChange = (e: ChangeEvent<HTMLInputElement>) => setAlbumTheme(e.target.value);
-  
-  const handleAlbumSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    // Handle album generation logic here
-  };
-
-  // Placeholder data
-  const recentPhotos = Array(4).fill(null);
-  const albums = [
-    { name: "Summer Vacation", photoCount: 10 },
-    { name: "Family Reunion", photoCount: 6 },
-    { name: "Christmas 2023", photoCount: 8 },
-    { name: "Baby's First Year", photoCount: 9 },
-  ];
 
   return (
     <div className="container mx-auto p-6 bg-white min-h-screen font-poppins">
       <h1 className="text-4xl font-bold mb-8 text-blue1">Family Photo Album</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-        <UploadPhoto onFileChange={handleFileChange} />
-        <GenerateAlbum 
-          albumTheme={albumTheme} 
-          onThemeChange={handleThemeChange}
-          onSubmit={handleAlbumSubmit}
-        />
+        <UploadPhoto onUpload={(imageId) => handlePhotoUpload(imageId)} />
+        <GenerateAlbum onSubmit={handleAlbumSubmit} />
       </div>
       
       <RecentPhotos photos={recentPhotos} />
