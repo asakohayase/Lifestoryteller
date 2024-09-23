@@ -1,15 +1,10 @@
-import logging
-
-from backend.agents import FamilyBookAgents
+from agents import FamilyBookAgents
 
 from crewai import Crew
 
 
-from backend.tasks import FamilyBookTasks
-from backend.utils.job_manager import append_event
-
-# logging.basicConfig(level=logging.DEBUG)
-# logger = logging.getLogger(__name__)
+from tasks import FamilyBookTasks
+from utils.job_manager import append_event
 
 
 class FamilyBookCrew:
