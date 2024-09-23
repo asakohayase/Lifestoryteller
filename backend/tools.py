@@ -1,10 +1,8 @@
-import base64
 import logging
 import os
 from typing import Any, List
 import uuid
 from PIL import Image
-import io
 from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams, Batch
@@ -12,8 +10,6 @@ from langchain.tools import BaseTool
 import torch
 from transformers import CLIPProcessor, CLIPModel
 from qdrant_client.http import models
-
-from backend.utils.log_config import setup_logger
 
 
 logger = logging.getLogger(__name__)

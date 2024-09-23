@@ -2,10 +2,10 @@ import logging
 from crewai import Task, Agent
 from textwrap import dedent
 
-from backend.utils.job_manager import append_event
+from utils.job_manager import append_event
 from utils.log_config import setup_logger
 
-from backend.tools import ImageRetrievalTool, ImageUploadTool
+from tools import ImageRetrievalTool, ImageUploadTool
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -50,10 +50,10 @@ class FamilyBookTasks:
             expected_output=dedent(
                 """
                 {
-                    "album_name": "Generated album name",
-                    "description": "Brief description of the album (Maximum 7 words)",
+                    "album_name": "Generated album name (Maximum 7 words)",
+                    "description": "Brief description of the album (Maximum 50 words)",
                     "image_ids": ["list of selected image IDs"],
-                    "theme": "Identified theme of the album (Maximum 50 words)"
+                    "theme": "Identified theme of the album"
                 }
                 """
             ),

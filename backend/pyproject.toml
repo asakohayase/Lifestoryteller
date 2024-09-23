@@ -16,6 +16,9 @@ pillow = "^10.4.0"
 qdrant-client = "^1.11.1"
 torch = "^2.4.1"
 transformers = "^4.44.2"
+fastapi = "^0.115.0"
+uvicorn = "^0.30.6"
+python-multipart = "^0.0.9"
 
 
 [build-system]
