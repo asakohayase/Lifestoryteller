@@ -1,5 +1,6 @@
 import logging
 import os
+import uuid
 from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel
 from crew import FamilyBookCrew
@@ -11,18 +12,56 @@ from db import (
     save_album,
     get_recent_photos,
     get_albums,
+    upload_file_to_s3,
 )
 
 from middleware import add_middleware
+from contextlib import asynccontextmanager
 
-app = FastAPI()
+# app = FastAPI()
 qdrant_client = QdrantClient("localhost", port=6333)
+
+# add_middleware(app)
+
+# MongoDB events
+# app.add_event_handler("startup", connect_to_mongo)
+# app.add_event_handler("shutdown", close_mongo_connection)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Connect to MongoDB
+    await connect_to_mongo()
+    yield
+    # Shutdown: Close MongoDB connection
+    await close_mongo_connection()
+
+
+app = FastAPI(lifespan=lifespan)
 
 add_middleware(app)
 
-# MongoDB events
-app.add_event_handler("startup", connect_to_mongo)
-app.add_event_handler("shutdown", close_mongo_connection)
+
+@app.post("/upload-image")
+async def upload_image(file: UploadFile = File(...)):
+    contents = await file.read()
+    file_path = f"/tmp/{file.filename}"
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    s3_object_name = f"{uuid.uuid4()}-{file.filename}"
+    s3_url = upload_file_to_s3(file_path, s3_object_name)
+
+    if s3_url:
+        metadata = {
+            "original_filename": file.filename,
+            "s3_url": s3_url,
+            "s3_object_name": s3_object_name,
+        }
+        image_id = await save_image(file.filename, metadata)
+        return {"image_id": image_id, "s3_url": s3_url}
+    else:
+        return {"error": "Failed to upload to S3"}
 
 
 logging.basicConfig(level=logging.INFO)
