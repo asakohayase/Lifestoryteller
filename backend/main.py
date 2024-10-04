@@ -21,11 +21,10 @@ from contextlib import asynccontextmanager
 # app = FastAPI()
 qdrant_client = QdrantClient("localhost", port=6333)
 
-# add_middleware(app)
-
-# MongoDB events
-# app.add_event_handler("startup", connect_to_mongo)
-# app.add_event_handler("shutdown", close_mongo_connection)
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -44,11 +43,17 @@ add_middleware(app)
 
 @app.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
+    logger.info(f"Received upload request for file: {file.filename}")
+
+    # Save the uploaded file
     contents = await file.read()
     file_path = f"/tmp/{file.filename}"
     with open(file_path, "wb") as f:
         f.write(contents)
 
+    logger.info(f"File saved: {file_path}")
+
+    # Generate S3 object name and upload to S3
     s3_object_name = f"{uuid.uuid4()}-{file.filename}"
     s3_url = upload_file_to_s3(file_path, s3_object_name)
 
@@ -58,44 +63,22 @@ async def upload_image(file: UploadFile = File(...)):
             "s3_url": s3_url,
             "s3_object_name": s3_object_name,
         }
-        image_id = await save_image(file.filename, metadata)
-        return {"image_id": image_id, "s3_url": s3_url}
+
+        # Process with FamilyBookCrew
+        crew = FamilyBookCrew("upload_job", qdrant_client)
+        crew.setup_crew(image_data=file_path)
+        crew_result = crew.kickoff()
+
+        # Save image metadata to MongoDB
+        image_id = await save_image(file_path, metadata)
+
+        logger.info(
+            f"Upload processed. Crew Result: {crew_result}, Image ID: {image_id}"
+        )
+        return {"image_id": image_id, "s3_url": s3_url, "crew_result": crew_result}
     else:
+        logger.error("Failed to upload to S3")
         return {"error": "Failed to upload to S3"}
-
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
-@app.post("/upload-image")
-async def upload_image(file: UploadFile = File(...)):
-    logger.info(f"Received upload request for file: {file.filename}")
-    logger.info(f"Current working directory: {os.getcwd()}")
-    logger.info(f"Files in current directory: {os.listdir()}")
-    logger.info(
-        f"Files in 'temp' directory: {os.listdir('temp') if os.path.exists('temp') else 'temp directory does not exist'}"
-    )
-
-    # Save the uploaded file
-    file_path = os.path.join("uploads", file.filename)
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, "wb") as buffer:
-        content = await file.read()
-        buffer.write(content)
-
-    logger.info(f"File saved: {file_path}")
-
-    crew = FamilyBookCrew("upload_job", qdrant_client)
-    # Pass only the filename to setup_crew
-    crew.setup_crew(image_data=file_path)
-    result = crew.kickoff()
-
-    # Save image metadata to MongoDB
-    image_id = await save_image(file_path, {"original_filename": file.filename})
-
-    logger.info(f"Upload processed. Result: {result}")
-    return {"imageId": result}
 
 
 class AlbumRequest(BaseModel):
