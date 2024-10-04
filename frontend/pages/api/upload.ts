@@ -54,17 +54,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const result = await response.json();
         console.log("Result", result);
       
-        // Extract the imageId from the nested structure
-        const imageId = result.imageId && result.imageId.raw ? result.imageId.raw : null;
-      
-        if (!imageId) {
+        if (!result.image_id) {
           throw new Error('No image ID received from server');
         }
       
-        res.status(200).json({ imageId });
+        res.status(200).json({ 
+          imageId: result.image_id,
+          s3Url: result.s3_url,
+          crewResult: result.crew_result
+        });
       } catch (error) {
         console.error('Error uploading to FastAPI server:', error);
         res.status(500).json({ error: 'Error uploading to FastAPI server' });
+      }finally {
+        // Clean up the temporary file
+        fs.unlink(file.filepath, (err) => {
+          if (err) console.error('Error deleting temporary file:', err);
+        });
       }
     })
   } else {
