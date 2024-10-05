@@ -4,43 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { uploadPhoto } from '@/utils/api';
-
-// interface UploadPhotoProps {
-//   onUpload: (formData: FormData) => Promise<void>;
-// }
-
-// export default function UploadPhoto({ onUpload }: UploadPhotoProps) {
-//   const formRef = useRef<HTMLFormElement>(null);
-//   const fileInputRef = useRef<HTMLInputElement>(null);
-
-//   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-//     event.preventDefault();
-//     if (formRef.current) {
-//       const formData = new FormData(formRef.current);
-
-//        // Log FormData contents
-//        console.log('FormData contents (UploadPhoto):');
-//        formData.forEach((value, key) => {
-//          console.log(key, typeof value, value instanceof File ? value.name : value);
-//        });
- 
-//        if (fileInputRef.current?.files?.[0]) {
-//          formData.set('file', fileInputRef.current.files[0]);
-//        } else {
-//          console.error('No file selected');
-//          return;
-//        }
-
-//       await onUpload(formData);
-//       formRef.current.reset();
-//     }
-//   };
-
-
-interface UploadPhotoProps {
-  onUpload: (imageId: string) => void;
-}
+import { UploadPhotoProps } from '@/typing';
 
 export default function UploadPhoto({ onUpload }: UploadPhotoProps) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -51,11 +15,6 @@ export default function UploadPhoto({ onUpload }: UploadPhotoProps) {
     if (formRef.current) {
       const formData = new FormData(formRef.current);
 
-      console.log('FormData contents (UploadPhoto):');
-      formData.forEach((value, key) => {
-        console.log(key, typeof value, value instanceof File ? value.name : value);
-      });
-
       if (fileInputRef.current?.files?.[0]) {
         formData.set('file', fileInputRef.current.files[0]);
       } else {
@@ -64,12 +23,7 @@ export default function UploadPhoto({ onUpload }: UploadPhotoProps) {
       }
 
       try {
-        const result = await uploadPhoto(formData);
-        if (result.imageId && result.imageId.raw) {
-          onUpload(result.imageId.raw);
-        } else {
-          console.error("No imageId in response:", result);
-        }
+        await onUpload(formData);
         formRef.current.reset();
       } catch (error) {
         console.error('Error uploading image:', error);

@@ -1,3 +1,5 @@
+import { Photo } from "@/typing";
+
 export async function uploadPhoto(formData: FormData) {
   const response = await fetch('/api/upload', {
     method: 'POST',
@@ -10,6 +12,15 @@ export async function uploadPhoto(formData: FormData) {
 
   return await response.json();
 }
+
+export async function fetchRecentPhotos(limit: number = 8): Promise<Photo[]> {
+  const response = await fetch(`/api/recent-photos?limit=${limit}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch recent photos');
+  }
+  return await response.json();
+}
+
 
 export async function generateAlbum(theme: string) {
   const response = await fetch('/api/generate-album', {
