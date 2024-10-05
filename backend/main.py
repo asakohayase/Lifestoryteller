@@ -1,21 +1,20 @@
+import json
 import logging
-import os
 import uuid
 from fastapi import FastAPI, HTTPException, UploadFile, File
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from crew import FamilyBookCrew
 from qdrant_client import QdrantClient
 from db import (
     connect_to_mongo,
     close_mongo_connection,
-    get_raw_photos,
     save_image,
     save_album,
     get_recent_photos,
     get_albums,
     upload_file_to_s3,
 )
+from crewai.crews.crew_output import CrewOutput
 
 from middleware import add_middleware
 from contextlib import asynccontextmanager
@@ -27,6 +26,30 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
+def parse_string_to_dict(s: str) -> dict:
+    try:
+        # First, try to parse it as JSON
+        return json.loads(s)
+    except json.JSONDecodeError:
+        # If JSON parsing fails, use a custom parsing method
+        # Remove leading/trailing whitespace and newlines
+        s = s.strip()
+        # Remove the outer curly braces if present
+        s = s.strip("{}")
+        # Split the string into key-value pairs
+        pairs = [pair.split(":", 1) for pair in s.split('",')]
+        # Convert to dictionary
+        result = {}
+        for key, value in pairs:
+            key = key.strip().strip('"')
+            value = value.strip().strip('"')
+            if value.startswith("[") and value.endswith("]"):
+                # Handle list values
+                value = [v.strip().strip('"') for v in value[1:-1].split(",")]
+            result[key] = value
+        return result
 
 
 @asynccontextmanager
@@ -89,15 +112,48 @@ class AlbumRequest(BaseModel):
 
 @app.post("/generate-album")
 async def generate_album(request: AlbumRequest):
-    crew = FamilyBookCrew("album_job", qdrant_client)
-    crew.setup_crew(theme_input=request.theme)
-    result = crew.kickoff()
-    # Save album to MongoDB
-    album_id = await save_album(
-        result["album_name"], result["description"], result["image_ids"]
-    )
+    try:
+        crew = FamilyBookCrew("album_job", qdrant_client)
+        crew.setup_crew(theme_input=request.theme)
+        result = crew.kickoff()
 
-    return {"albumId": album_id, **result}
+        logger.debug(f"Raw result type: {type(result)}")
+        logger.debug(f"Raw result content: {result}")
+
+        if isinstance(result, CrewOutput):
+            logger.debug(f"CrewOutput raw type: {type(result.raw)}")
+            logger.debug(f"CrewOutput raw content: {result.raw}")
+            album_data = parse_string_to_dict(result.raw)
+        elif isinstance(result, dict):
+            album_data = result
+        elif isinstance(result, str):
+            album_data = parse_string_to_dict(result)
+        else:
+            logger.error(f"Unexpected result type: {type(result)}")
+            raise ValueError("Unexpected result format from album generation")
+
+        logger.debug(f"Album data type after processing: {type(album_data)}")
+        logger.debug(f"Album data content after processing: {album_data}")
+
+        # Ensure album_data is a dictionary and has all required keys
+        if not isinstance(album_data, dict):
+            logger.error(f"Album data is not a dictionary: {album_data}")
+            raise ValueError("Invalid album data format: not a dictionary")
+
+        required_keys = ["album_name", "description", "image_ids"]
+        missing_keys = [key for key in required_keys if key not in album_data]
+        if missing_keys:
+            logger.error(f"Missing keys in album data: {missing_keys}")
+            raise ValueError(f"Invalid album data format: missing keys {missing_keys}")
+
+        album_id = await save_album(
+            album_data["album_name"], album_data["description"], album_data["image_ids"]
+        )
+        logger.info(f"Album saved successfully with ID: {album_id}")
+        return {"albumId": album_id, **album_data}
+    except Exception as e:
+        logger.exception(f"Error in generate_album: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/recent-photos")
@@ -116,10 +172,11 @@ async def get_albums_route():
     return {"albums": albums}
 
 
-@app.get("/debug/raw-photos")
-async def get_raw_photos_route(limit: int = 10):
-    photos = await get_raw_photos(limit)
-    return JSONResponse(content={"photos": photos})
+# @app.post("/admin/clear-all-data")
+# async def clear_all_data():
+#     await clear_all_images()
+#     clear_qdrant_collection("family_book_images")
+#     return {"message": "All data has been cleared"}
 
 
 if __name__ == "__main__":

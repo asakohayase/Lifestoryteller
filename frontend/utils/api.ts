@@ -1,4 +1,5 @@
-import { Photo } from "@/typing";
+import { Photo } from "../typing";
+
 
 export async function uploadPhoto(formData: FormData) {
   const response = await fetch('/api/upload', {
@@ -22,6 +23,22 @@ export async function fetchRecentPhotos(limit: number = 8): Promise<Photo[]> {
 }
 
 
+// export async function generateAlbum(theme: string) {
+//   const response = await fetch('/api/generate-album', {
+//     method: 'POST',
+//     headers: {
+//       'Content-Type': 'application/json',
+//     },
+//     body: JSON.stringify({ theme }),
+//   });
+
+//   if (!response.ok) {
+//     throw new Error('Failed to generate album');
+//   }
+
+//   return await response.json();
+// }
+
 export async function generateAlbum(theme: string) {
   const response = await fetch('/api/generate-album', {
     method: 'POST',
@@ -35,5 +52,16 @@ export async function generateAlbum(theme: string) {
     throw new Error('Failed to generate album');
   }
 
-  return await response.json();
+  const data = await response.json();
+  
+  // Ensure the response contains the expected fields
+  if (!data.album_name || !data.description || !Array.isArray(data.image_ids)) {
+    throw new Error('Invalid album data format');
+  }
+
+  return {
+    album_name: data.album_name,
+    description: data.description,
+    image_ids: data.image_ids
+  };
 }
