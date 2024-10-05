@@ -7,6 +7,11 @@ from motor.motor_asyncio import (
 import os
 import boto3
 from botocore.client import BaseClient
+from botocore.config import Config
+
+s3_client = boto3.client(
+    "s3", region_name=os.getenv("AWS_REGION"), config=Config(signature_version="s3v4")
+)
 
 
 class MongoDBCollections(TypedDict):
@@ -114,10 +119,28 @@ async def save_album(album_name: str, description: str, image_ids: List[str]) ->
     return str(result.inserted_id)
 
 
-async def get_recent_photos(limit: int = 10) -> List[Dict[str, Any]]:
-    images_collection = get_collection("images")
-    cursor = images_collection.find().sort("_id", -1).limit(limit)
-    return await cursor.to_list(length=limit)
+async def get_recent_photos(limit: int = 8) -> List[Dict[str, Any]]:
+    try:
+        images_collection = get_collection("images")
+        cursor = images_collection.find().sort("_id", -1).limit(limit)
+        photos = await cursor.to_list(length=limit)
+        return [
+            {
+                "id": str(photo["_id"]),
+                "url": s3_client.generate_presigned_url(
+                    "get_object",
+                    Params={
+                        "Bucket": S3Config.get_bucket_name(),
+                        "Key": photo["metadata"]["s3_object_name"],
+                    },
+                    ExpiresIn=3600,
+                ),
+            }
+            for photo in photos
+        ]
+    except Exception as e:
+        print(f"Error in get_recent_photos: {str(e)}")
+        raise
 
 
 async def get_albums() -> List[Dict[str, Any]]:
@@ -150,3 +173,13 @@ def generate_presigned_url(object_name: str, expiration: int = 3600) -> Optional
     except Exception as e:
         print(f"Error generating presigned URL: {e}")
         return None
+
+
+async def get_raw_photos(limit: int = 10) -> List[Dict[str, Any]]:
+    db = get_db()
+    cursor = db.images.find().sort("_id", -1).limit(limit)
+    photos = await cursor.to_list(length=limit)
+    return [
+        {**photo, "_id": str(photo["_id"])}  # Convert ObjectId to string
+        for photo in photos
+    ]
