@@ -1,20 +1,39 @@
 import { Image as ImageIcon } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card"
+import { Photo } from '@/typing';
+import { useState } from 'react';
+import Image from 'next/image';
 
-interface RecentPhotosProps {
-  photos: string[];
-}
 
-export default function RecentPhotos({ photos }: RecentPhotosProps) {
+export default function RecentPhotos({ photos }: { photos: Photo[] }) {
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+
+  const handleImageError = (photoId: string) => {
+    setImageErrors(prev => ({ ...prev, [photoId]: true }));
+  };
+
   return (
     <div className="mb-8">
       <h2 className="text-2xl font-semibold mb-4 text-blue2">Recent Photos</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {photos.map((_, index) => (
-          <Card key={index} className="bg-white shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg overflow-hidden">
+      {photos.map((photo) => (
+          <Card key={photo.id} className="bg-white shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg overflow-hidden">
             <CardContent className="p-2">
-              <div className="aspect-w-1 aspect-h-1 bg-gray-200 rounded-md overflow-hidden">
-                <ImageIcon className="h-full w-full text-gray-400 p-4" />
+              <div className="aspect-square bg-gray-200 rounded-md overflow-hidden relative">
+                {photo.url && !imageErrors[photo.id] ? (
+                  <Image 
+                    src={photo.url} 
+                    alt="Uploaded photo" 
+                    fill
+                    sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    style={{
+                      objectFit: 'cover',
+                    }}
+                    onError={() => handleImageError(photo.id)}
+                  />
+                ) : (
+                  <ImageIcon className="h-full w-full text-gray-400 p-4" />
+                )}
               </div>
             </CardContent>
           </Card>

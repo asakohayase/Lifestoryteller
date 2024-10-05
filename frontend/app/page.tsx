@@ -1,37 +1,36 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import UploadPhoto from '@/components/UploadPhoto';
 import GenerateAlbum from '@/components/GenerateAlbum';
 import RecentPhotos from '@/components/RecentPhotos';
 import AlbumList from '@/components/AlbumList';
-import { generateAlbum, uploadPhoto } from '@/utils/api';
+import { fetchRecentPhotos, generateAlbum, uploadPhoto } from '@/utils/api';
+import { Photo } from '@/typing';
 // import { generateAlbum, uploadPhoto } from './actions';
 
 const FamilyPhotoAlbum = () => {
-  const [recentPhotos, setRecentPhotos] = useState<string[]>([]);
+  const [recentPhotos, setRecentPhotos] = useState<Photo[]>([]);
   const [albums, setAlbums] = useState<{ name: string; photoCount: number }[]>([]);
 
-  // const handlePhotoUpload = async (formData: FormData) => {
-  //   try {
-  //     const result = await uploadPhoto(formData);
-  //     setRecentPhotos(prevPhotos => [...prevPhotos, result.imageId]);
-  //   } catch (error) {
-  //     console.error('Error uploading image:', error);
-  //   }
-  // };
 
-  // const handleAlbumSubmit = async (theme: string) => {
-  //   try {
-  //     const result = await generateAlbum(theme);
-  //     setAlbums(prevAlbums => [...prevAlbums, { name: result.album_name, photoCount: result.image_ids.length }]);
-  //   } catch (error) {
-  //     console.error('Error generating album:', error);
-  //   }
-  // };
+  const fetchLatestPhotos = () => {
+    fetchRecentPhotos(8)
+      .then(setRecentPhotos)
+      .catch(error => console.error('Error fetching recent photos:', error));
+  };
 
-  const handlePhotoUpload = (imageId: string) => {
-    setRecentPhotos(prevPhotos => [...prevPhotos, imageId]);
+  useEffect(() => {
+    fetchLatestPhotos();
+  }, []);
+
+  const handlePhotoUpload = async (formData: FormData) => {
+    try {
+      await uploadPhoto(formData);
+      fetchLatestPhotos(); // Refetch photos after successful upload
+    } catch (error) {
+      console.error('Error uploading image:', error);
+    }
   };
 
   const handleAlbumSubmit = async (theme: string) => {
@@ -53,7 +52,7 @@ const FamilyPhotoAlbum = () => {
       <h1 className="text-4xl font-bold mb-8 text-blue1">Family Photo Album</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-        <UploadPhoto onUpload={(imageId) => handlePhotoUpload(imageId)} />
+        <UploadPhoto onUpload={handlePhotoUpload} />
         <GenerateAlbum onSubmit={handleAlbumSubmit} />
       </div>
       

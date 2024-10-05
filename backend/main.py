@@ -1,13 +1,15 @@
 import logging
 import os
 import uuid
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from crew import FamilyBookCrew
 from qdrant_client import QdrantClient
 from db import (
     connect_to_mongo,
     close_mongo_connection,
+    get_raw_photos,
     save_image,
     save_album,
     get_recent_photos,
@@ -97,19 +99,27 @@ async def generate_album(request: AlbumRequest):
 
     return {"albumId": album_id, **result}
 
-    # return result
-
 
 @app.get("/recent-photos")
-async def get_recent_photos_route(limit: int = 10):
-    photos = await get_recent_photos(limit)
-    return {"photos": photos}
+async def get_recent_photos_route(limit: int = 8):
+    try:
+        photos = await get_recent_photos(limit)
+        return {"photos": photos}
+    except Exception as e:
+        print(f"Error fetching recent photos: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/albums")
 async def get_albums_route():
     albums = await get_albums()
     return {"albums": albums}
+
+
+@app.get("/debug/raw-photos")
+async def get_raw_photos_route(limit: int = 10):
+    photos = await get_raw_photos(limit)
+    return JSONResponse(content={"photos": photos})
 
 
 if __name__ == "__main__":
