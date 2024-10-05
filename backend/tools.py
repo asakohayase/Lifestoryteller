@@ -14,7 +14,6 @@ from qdrant_client.http import models
 
 logger = logging.getLogger(__name__)
 
-
 # Qdrant setup
 qdrant_client = QdrantClient("localhost", port=6333)
 collection_name = "family_book_images"

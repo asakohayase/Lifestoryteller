@@ -7,12 +7,10 @@ import RecentPhotos from '@/components/RecentPhotos';
 import AlbumList from '@/components/AlbumList';
 import { fetchRecentPhotos, generateAlbum, uploadPhoto } from '@/utils/api';
 import { Photo } from '@/typing';
-// import { generateAlbum, uploadPhoto } from './actions';
 
 const FamilyPhotoAlbum = () => {
   const [recentPhotos, setRecentPhotos] = useState<Photo[]>([]);
-  const [albums, setAlbums] = useState<{ name: string; photoCount: number }[]>([]);
-
+  const [albums, setAlbums] = useState<{ album_name: string; photoCount: number }[]>([]);
 
   const fetchLatestPhotos = () => {
     fetchRecentPhotos(8)
@@ -38,7 +36,7 @@ const FamilyPhotoAlbum = () => {
       console.log("Handling album submit in page.tsx");
       const result = await generateAlbum(theme);
       if (result.album_name && result.image_ids) {
-        setAlbums(prevAlbums => [...prevAlbums, { name: result.album_name, photoCount: result.image_ids.length }]);
+        setAlbums(prevAlbums => [...prevAlbums, { album_name: result.album_name, photoCount: result.image_ids.length }]);
       } else {
         console.error("Unexpected album generation result:", result);
       }

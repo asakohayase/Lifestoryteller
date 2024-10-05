@@ -8,6 +8,7 @@ import os
 import boto3
 from botocore.client import BaseClient
 from botocore.config import Config
+from qdrant_client import QdrantClient
 
 s3_client = boto3.client(
     "s3", region_name=os.getenv("AWS_REGION"), config=Config(signature_version="s3v4")
@@ -114,7 +115,7 @@ async def save_image(file_path: str, metadata: Dict[str, Any]) -> str:
 async def save_album(album_name: str, description: str, image_ids: List[str]) -> str:
     albums_collection = get_collection("albums")
     result = await albums_collection.insert_one(
-        {"name": album_name, "description": description, "image_ids": image_ids}
+        {"name": album_name, "description": description, "image_ids": image_ids or []}
     )
     return str(result.inserted_id)
 
@@ -175,11 +176,20 @@ def generate_presigned_url(object_name: str, expiration: int = 3600) -> Optional
         return None
 
 
-async def get_raw_photos(limit: int = 10) -> List[Dict[str, Any]]:
-    db = get_db()
-    cursor = db.images.find().sort("_id", -1).limit(limit)
-    photos = await cursor.to_list(length=limit)
-    return [
-        {**photo, "_id": str(photo["_id"])}  # Convert ObjectId to string
-        for photo in photos
-    ]
+# async def clear_all_images():
+#     db = get_db()
+#     await db.images.delete_many({})
+#     await db.albums.delete_many({})
+#     print("All images and albums have been deleted from MongoDB")
+
+
+# def clear_qdrant_collection(collection_name: str):
+#     client = QdrantClient("localhost", port=6333)
+#     client.delete_collection(collection_name)
+#     print(f"Qdrant collection '{collection_name}' has been deleted")
+
+
+# async def clear_all_data(qdrant_collection_name: str):
+#     await clear_all_images()
+#     clear_qdrant_collection(qdrant_collection_name)
+#     print("All data has been cleared from both MongoDB and Qdrant")
