@@ -1,7 +1,7 @@
 import { Image as ImageIcon, Plus, X } from 'lucide-react';
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
-import { Album, AlbumListProps } from '@/typing';
+import { Album, AlbumListProps, Photo } from '@/typing';
 import { useState } from 'react';
 import Image from 'next/image';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@radix-ui/react-dialog';
@@ -47,15 +47,15 @@ export default function AlbumList({ albums }: AlbumListProps) {
               <p className="text-sm text-gray-600">{album.images.length} photos</p>
             </CardContent>
           <CardFooter className="bg-white1 p-2 flex justify-center">
-            {/* <Button variant="ghost" className="text-blue2 hover:text-blue1" onClick={() => handleAlbumClick(album)}>
+            <Button variant="ghost" className="text-blue2 hover:text-blue1" onClick={() => handleAlbumClick(album)}>
               <Plus className="h-4 w-4 mr-1" /> View Album
-            </Button> */}
+            </Button>
           </CardFooter>
         </Card>
       ))}
     </div>
 
-    {/* {selectedAlbum && (
+    {selectedAlbum && (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
           <h3 className="text-2xl font-semibold mb-4">{selectedAlbum.album_name}</h3>
@@ -76,7 +76,7 @@ export default function AlbumList({ albums }: AlbumListProps) {
           <Button className="mt-4" onClick={() => setSelectedAlbum(null)}>Close</Button>
         </div>
       </div>
-    )} */}
+    )}
   </div>
   );
 }
