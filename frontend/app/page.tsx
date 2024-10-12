@@ -5,14 +5,12 @@ import UploadPhoto from '@/components/UploadPhoto';
 import GenerateAlbum from '@/components/GenerateAlbum';
 import RecentPhotos from '@/components/RecentPhotos';
 import AlbumList from '@/components/AlbumList';
-import { fetchRecentPhotos, generateAlbum, uploadPhoto } from '@/utils/api';
-import { Photo } from '@/typing';
-// import { generateAlbum, uploadPhoto } from './actions';
+import { fetchAlbums, fetchRecentPhotos, generateAlbum, uploadPhoto } from '@/utils/api';
+import { Album, Photo } from '@/typing';
 
 const FamilyPhotoAlbum = () => {
   const [recentPhotos, setRecentPhotos] = useState<Photo[]>([]);
-  const [albums, setAlbums] = useState<{ name: string; photoCount: number }[]>([]);
-
+  const [albums, setAlbums] = useState<Album[]>([]);
 
   const fetchLatestPhotos = () => {
     fetchRecentPhotos(8)
@@ -20,9 +18,28 @@ const FamilyPhotoAlbum = () => {
       .catch(error => console.error('Error fetching recent photos:', error));
   };
 
+  const fetchLatestAlbums = () => {
+    fetchAlbums()
+    .then(fetchedAlbums => {
+      const formattedAlbums = fetchedAlbums.map(album => ({
+        id: album.id,
+        album_name: album.album_name,
+        description: album.description ?? '',
+        images: album.images.map(img => ({ id: img.id, url: img.url })),
+        cover_image: album.cover_image ? { id: album.cover_image.id, url: album.cover_image.url } : undefined
+      }));
+      console.log(formattedAlbums[0].images)
+      setAlbums(formattedAlbums);
+    })
+    .catch(error => console.error('Error fetching albums:', error));
+};
+
   useEffect(() => {
     fetchLatestPhotos();
+    fetchLatestAlbums();
   }, []);
+
+
 
   const handlePhotoUpload = async (formData: FormData) => {
     try {
@@ -36,12 +53,8 @@ const FamilyPhotoAlbum = () => {
   const handleAlbumSubmit = async (theme: string) => {
     try {
       console.log("Handling album submit in page.tsx");
-      const result = await generateAlbum(theme);
-      if (result.album_name && result.image_ids) {
-        setAlbums(prevAlbums => [...prevAlbums, { name: result.album_name, photoCount: result.image_ids.length }]);
-      } else {
-        console.error("Unexpected album generation result:", result);
-      }
+      const newAlbum = await generateAlbum(theme);
+      setAlbums(prevAlbums => [...prevAlbums, newAlbum]);
     } catch (error) {
       console.error('Error generating album:', error);
     }

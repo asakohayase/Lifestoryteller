@@ -21,12 +21,13 @@ class FamilyBookTasks:
         self.logger.info("Callback called: %s", task_output)
         append_event(self.job_id, task_output)
 
-    def upload_image_task(self, agent: Agent, filename: str):
+    def upload_image_task(self, agent: Agent, filename: str, image_id: str):
         return Task(
             description=dedent(
                 f"""
                 Process and upload the image file: {filename}
                 Use the ImageUploadTool to process and store the image.
+                The image ID is : {image_id}
                 """
             ),
             agent=agent,
@@ -61,43 +62,3 @@ class FamilyBookTasks:
             async_execution=False,
             callback=self.append_event_callback,
         )
-
-    # def generate_description_task(
-    #     self, agent: Agent, image_analysis: dict, image_metadata: dict
-    # ):
-    #     return Task(
-    #         description=dedent(
-    #             f"""
-    #             Generate a detailed and engaging description for a family photo based on the provided image analysis and metadata.
-
-    #             Image Analysis:
-    #             {image_analysis}
-
-    #             Image Metadata:
-    #             {image_metadata}
-
-    #             Your task is to:
-    #             1. Create a vivid, narrative description of the scene captured in the photo.
-    #             2. Highlight key elements such as people, objects, setting, and apparent relationships or activities.
-    #             3. Infer and describe the mood or emotional context of the photo.
-    #             4. If possible, relate the photo to potential family history or significant events.
-    #             5. Keep the description between 100-150 words.
-    #         """
-    #         ),
-    #         agent=agent,
-    #         expected_output=dedent(
-    #             """
-    #             {
-    #                 "description": "The generated description of the photo",
-    #                 "key_elements": ["List of key elements mentioned in the description"],
-    #                 "inferred_mood": "The mood or emotional context inferred from the photo",
-    #                 "potential_significance": "Any potential historical or familial significance of the photo"
-    #             }
-    #             """
-    #         ),
-    #         callback=self.append_event_callback,
-    #         context={
-    #             "image_analysis": image_analysis,
-    #             "image_metadata": image_metadata,
-    #         },
-    #     )

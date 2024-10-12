@@ -16,11 +16,11 @@ class FamilyBookCrew:
             job_id=self.job_id, qdrant_client=self.qdrant_client
         )
 
-    def setup_crew(self, image_data=None, theme_input=None):
+    def setup_crew(self, image_data=None, theme_input=None, image_id=None):
         if image_data:
             image_upload_agent = self.agents.image_upload_agent()
             upload_image_task = self.tasks.upload_image_task(
-                image_upload_agent, image_data
+                image_upload_agent, image_data, image_id
             )
             self.crew = Crew(
                 agents=[image_upload_agent], tasks=[upload_image_task], verbose=True

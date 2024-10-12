@@ -1,21 +1,24 @@
+import json
 import logging
-import os
+import traceback
 import uuid
 from fastapi import FastAPI, HTTPException, UploadFile, File
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+
+from tools import ensure_qdrant_collection
+from check import check_id_consistency, check_mongo_data, check_qdrant_data
 from crew import FamilyBookCrew
 from qdrant_client import QdrantClient
 from db import (
     connect_to_mongo,
     close_mongo_connection,
-    get_raw_photos,
+    generate_album_with_presigned_urls,
     save_image,
-    save_album,
     get_recent_photos,
     get_albums,
     upload_file_to_s3,
 )
+from crewai.crews.crew_output import CrewOutput
 
 from middleware import add_middleware
 from contextlib import asynccontextmanager
@@ -29,10 +32,35 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def parse_string_to_dict(s: str) -> dict:
+    try:
+        # First, try to parse it as JSON
+        return json.loads(s)
+    except json.JSONDecodeError:
+        # If JSON parsing fails, use a custom parsing method
+        # Remove leading/trailing whitespace and newlines
+        s = s.strip()
+        # Remove the outer curly braces if present
+        s = s.strip("{}")
+        # Split the string into key-value pairs
+        pairs = [pair.split(":", 1) for pair in s.split('",')]
+        # Convert to dictionary
+        result = {}
+        for key, value in pairs:
+            key = key.strip().strip('"')
+            value = value.strip().strip('"')
+            if value.startswith("[") and value.endswith("]"):
+                # Handle list values
+                value = [v.strip().strip('"') for v in value[1:-1].split(",")]
+            result[key] = value
+        return result
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Connect to MongoDB
     await connect_to_mongo()
+    ensure_qdrant_collection()
     yield
     # Shutdown: Close MongoDB connection
     await close_mongo_connection()
@@ -45,38 +73,35 @@ add_middleware(app)
 
 @app.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
-    logger.info(f"Received upload request for file: {file.filename}")
-
     # Save the uploaded file
     contents = await file.read()
     file_path = f"/tmp/{file.filename}"
     with open(file_path, "wb") as f:
         f.write(contents)
 
-    logger.info(f"File saved: {file_path}")
+    # Generate a single UUID for both Qdrant and MongoDB
+    image_id = str(uuid.uuid4())
 
     # Generate S3 object name and upload to S3
-    s3_object_name = f"{uuid.uuid4()}-{file.filename}"
+    s3_object_name = f"{image_id}-{file.filename}"
     s3_url = upload_file_to_s3(file_path, s3_object_name)
 
     if s3_url:
         metadata = {
+            "image_id": image_id,
             "original_filename": file.filename,
             "s3_url": s3_url,
             "s3_object_name": s3_object_name,
         }
 
+        # Save metadata to MongoDB
+        mongo_result = await save_image(image_id, file_path, metadata)
+
         # Process with FamilyBookCrew
         crew = FamilyBookCrew("upload_job", qdrant_client)
-        crew.setup_crew(image_data=file_path)
+        crew.setup_crew(image_data=file_path, image_id=image_id)
         crew_result = crew.kickoff()
 
-        # Save image metadata to MongoDB
-        image_id = await save_image(file_path, metadata)
-
-        logger.info(
-            f"Upload processed. Crew Result: {crew_result}, Image ID: {image_id}"
-        )
         return {"image_id": image_id, "s3_url": s3_url, "crew_result": crew_result}
     else:
         logger.error("Failed to upload to S3")
@@ -89,15 +114,34 @@ class AlbumRequest(BaseModel):
 
 @app.post("/generate-album")
 async def generate_album(request: AlbumRequest):
-    crew = FamilyBookCrew("album_job", qdrant_client)
-    crew.setup_crew(theme_input=request.theme)
-    result = crew.kickoff()
-    # Save album to MongoDB
-    album_id = await save_album(
-        result["album_name"], result["description"], result["image_ids"]
-    )
+    try:
+        crew = FamilyBookCrew("album_job", qdrant_client)
+        crew.setup_crew(theme_input=request.theme)
+        result = crew.kickoff()
 
-    return {"albumId": album_id, **result}
+        if isinstance(result, CrewOutput):
+            album_data = parse_string_to_dict(result.raw)
+        elif isinstance(result, dict):
+            album_data = result
+        elif isinstance(result, str):
+            album_data = parse_string_to_dict(result)
+        else:
+            logger.error(f"Unexpected result type: {type(result)}")
+            raise ValueError("Unexpected result format from album generation")
+        if not isinstance(album_data, dict):
+            raise ValueError("Invalid album data format: not a dictionary")
+
+        required_keys = ["album_name", "description", "image_ids"]
+        missing_keys = [key for key in required_keys if key not in album_data]
+        if missing_keys:
+            raise ValueError(f"Invalid album data format: missing keys {missing_keys}")
+
+        # Generate album with presigned URLs
+        album_with_urls = await generate_album_with_presigned_urls(album_data)
+
+        return album_with_urls
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/recent-photos")
@@ -112,14 +156,36 @@ async def get_recent_photos_route(limit: int = 8):
 
 @app.get("/albums")
 async def get_albums_route():
-    albums = await get_albums()
-    return {"albums": albums}
+    try:
+        albums = await get_albums()
+        return {"albums": json.loads(json.dumps(albums, default=str))}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/debug/raw-photos")
-async def get_raw_photos_route(limit: int = 10):
-    photos = await get_raw_photos(limit)
-    return JSONResponse(content={"photos": photos})
+# @app.post("/admin/clear-all-data")
+# async def clear_all_data():
+#     await clear_all_images()
+#     clear_qdrant_collection("family_book_images")
+#     return {"message": "All data has been cleared"}
+
+
+@app.get("/check-data")
+async def check_data():
+    qdrant_output = check_qdrant_data("family_book_images")
+    mongo_output = await check_mongo_data("family_photo_album", "albums")
+    return {"qdrant_output": qdrant_output, "mongodb": mongo_output}
+
+
+@app.get("/check-id-consistency")
+async def api_check_id_consistency(limit: int = 5):
+    try:
+        result = await check_id_consistency("family_book_images", "images", limit)
+        return {"message": "ID consistency check completed", "result": result}
+    except Exception as e:
+        error_msg = f"Error in check_id_consistency: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 if __name__ == "__main__":
