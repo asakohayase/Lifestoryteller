@@ -28,18 +28,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'No file uploaded' })
       }
 
-      console.log("File received", { 
-        filename: file.originalFilename, 
-        filepath: file.filepath, 
-        mimetype: file.mimetype 
-      });
-
       const formData = new FormData()
       const filename = file.originalFilename || path.basename(file.filepath);
       formData.append('file', fs.createReadStream(file.filepath), filename)
 
       try {
-        console.log("Sending request to FastAPI");
         const response = await fetch('http://127.0.0.1:8000/upload-image', {
           method: 'POST',
           body: formData,

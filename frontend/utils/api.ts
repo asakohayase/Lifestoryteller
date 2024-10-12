@@ -1,4 +1,5 @@
-import { Photo } from "@/typing";
+import { Album, Photo } from "../typing";
+
 
 export async function uploadPhoto(formData: FormData) {
   const response = await fetch('/api/upload', {
@@ -21,8 +22,17 @@ export async function fetchRecentPhotos(limit: number = 8): Promise<Photo[]> {
   return await response.json();
 }
 
+export const fetchAlbums = async (): Promise<Album[]> => {
+  const response = await fetch('/api/albums');
+  if (!response.ok) {
+    throw new Error('Failed to fetch albums');
+  }
+  return response.json();
+};
 
-export async function generateAlbum(theme: string) {
+
+
+export async function generateAlbum(theme: string): Promise<Album> {
   const response = await fetch('/api/generate-album', {
     method: 'POST',
     headers: {
@@ -35,5 +45,18 @@ export async function generateAlbum(theme: string) {
     throw new Error('Failed to generate album');
   }
 
-  return await response.json();
+  const data = await response.json();
+  
+  // Ensure the response contains the expected fields
+  if (!data.id || !data.album_name || !data.description || !Array.isArray(data.images)) {
+    throw new Error('Invalid album data format');
+  }
+
+  return {
+    id: data.id,
+    album_name: data.album_name,
+    description: data.description,
+    images: data.images,
+    cover_image: data.cover_image
+  };
 }
