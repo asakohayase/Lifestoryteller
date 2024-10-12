@@ -6,7 +6,6 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
 from tools import ensure_qdrant_collection
-from check import check_id_consistency, check_mongo_data, check_qdrant_data
 from crew import FamilyBookCrew
 from qdrant_client import QdrantClient
 from db import (
@@ -168,24 +167,6 @@ async def get_albums_route():
 #     await clear_all_images()
 #     clear_qdrant_collection("family_book_images")
 #     return {"message": "All data has been cleared"}
-
-
-@app.get("/check-data")
-async def check_data():
-    qdrant_output = check_qdrant_data("family_book_images")
-    mongo_output = await check_mongo_data("family_photo_album", "albums")
-    return {"qdrant_output": qdrant_output, "mongodb": mongo_output}
-
-
-@app.get("/check-id-consistency")
-async def api_check_id_consistency(limit: int = 5):
-    try:
-        result = await check_id_consistency("family_book_images", "images", limit)
-        return {"message": "ID consistency check completed", "result": result}
-    except Exception as e:
-        error_msg = f"Error in check_id_consistency: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)
-        raise HTTPException(status_code=500, detail=error_msg)
 
 
 if __name__ == "__main__":
