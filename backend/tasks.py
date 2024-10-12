@@ -21,12 +21,13 @@ class FamilyBookTasks:
         self.logger.info("Callback called: %s", task_output)
         append_event(self.job_id, task_output)
 
-    def upload_image_task(self, agent: Agent, filename: str):
+    def upload_image_task(self, agent: Agent, filename: str, image_id: str):
         return Task(
             description=dedent(
                 f"""
                 Process and upload the image file: {filename}
                 Use the ImageUploadTool to process and store the image.
+                The image ID is : {image_id}
                 """
             ),
             agent=agent,

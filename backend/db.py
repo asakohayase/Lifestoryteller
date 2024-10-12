@@ -1,3 +1,5 @@
+import json
+import logging
 from typing import Any, Dict, List, Optional, TypedDict
 from motor.motor_asyncio import (
     AsyncIOMotorClient,
@@ -8,7 +10,20 @@ import os
 import boto3
 from botocore.client import BaseClient
 from botocore.config import Config
+from bson import ObjectId
 from qdrant_client import QdrantClient
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+
+def object_id_to_str(obj):
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    return obj
+
 
 s3_client = boto3.client(
     "s3", region_name=os.getenv("AWS_REGION"), config=Config(signature_version="s3v4")
@@ -67,7 +82,6 @@ S3Config.initialize()
 
 async def connect_to_mongo():
     if MongoDB.client is None:
-        print(f"Connecting to MongoDB. Current client state: {MongoDB.client}")
         MongoDB.client = AsyncIOMotorClient(
             os.getenv("MONGODB_URI", "mongodb://localhost:27017")
         )
@@ -76,16 +90,13 @@ async def connect_to_mongo():
             "images": MongoDB.db.get_collection("images"),
             "albums": MongoDB.db.get_collection("albums"),
         }
-        print(f"MongoDB connection established. New client state: {MongoDB.client}")
 
 
 async def close_mongo_connection():
-    print(f"Closing MongoDB. Current client state: {MongoDB.client}")
     client = MongoDB.client
     if client is not None:
         try:
             client.close()
-            print("MongoDB connection closed")
         except Exception as e:
             print(f"Error closing MongoDB connection: {e}")
         finally:
@@ -104,20 +115,72 @@ def get_collection(name: str) -> AsyncIOMotorCollection:
     return MongoDB.collections[name]
 
 
-async def save_image(file_path: str, metadata: Dict[str, Any]) -> str:
+async def save_image(image_id: str, file_path: str, metadata: Dict[str, Any]) -> str:
     images_collection = get_collection("images")
     result = await images_collection.insert_one(
-        {"file_path": file_path, "metadata": metadata}
+        {"_id": image_id, "file_path": file_path, "metadata": metadata}
     )
     return str(result.inserted_id)
 
 
-async def save_album(album_name: str, description: str, image_ids: List[str]) -> str:
+async def save_album(
+    album_name: str, description: str, images: List[Dict[str, str]]
+) -> str:
     albums_collection = get_collection("albums")
     result = await albums_collection.insert_one(
-        {"name": album_name, "description": description, "image_ids": image_ids or []}
+        {
+            "album_name": album_name,
+            "description": description,
+            "images": images,
+            "cover_image": images[0] if images else None,
+        }
     )
     return str(result.inserted_id)
+
+
+async def generate_album_with_presigned_urls(
+    album_data: Dict[str, Any]
+) -> Dict[str, Any]:
+    images = []
+    for image_id in album_data.get("image_ids", []):
+        image_doc = await get_image_metadata(image_id)
+        if not image_doc:
+            print(f"No metadata found for image ID: {image_id}")
+            continue
+        if (
+            image_doc
+            and "metadata" in image_doc
+            and "s3_object_name" in image_doc["metadata"]
+        ):
+            try:
+                presigned_url = s3_client.generate_presigned_url(
+                    "get_object",
+                    Params={
+                        "Bucket": S3Config.get_bucket_name(),
+                        "Key": image_doc["metadata"]["s3_object_name"],
+                    },
+                    ExpiresIn=3600,
+                )
+                images.append({"id": str(image_id), "url": presigned_url})
+            except Exception as e:
+                print(f"Error generating presigned URL for image {image_id}: {str(e)}")
+
+    if not images:
+        raise ValueError("No valid images found for the album")
+
+    album_id = await save_album(
+        album_data["album_name"], album_data["description"], images
+    )
+
+    result = {
+        "id": album_id,
+        "album_name": album_data["album_name"],
+        "description": album_data["description"],
+        "images": images,
+        "cover_image": images[0] if images else None,
+    }
+
+    return result
 
 
 async def get_recent_photos(limit: int = 8) -> List[Dict[str, Any]]:
@@ -145,9 +208,40 @@ async def get_recent_photos(limit: int = 8) -> List[Dict[str, Any]]:
 
 
 async def get_albums() -> List[Dict[str, Any]]:
-    albums_collection = get_collection("albums")
-    cursor = albums_collection.find()
-    return await cursor.to_list(length=None)
+
+    try:
+        albums_collection = get_collection("albums")
+        cursor = albums_collection.find().sort("_id", -1)
+        albums = await cursor.to_list(length=None)
+
+        formatted_albums = []
+        for album in albums:
+            formatted_album = {
+                "id": str(album["_id"]),
+                "album_name": album["album_name"],
+                "description": album.get("description", ""),
+                "images": [],
+                "cover_image": None,
+            }
+
+            for image in album.get("images", []):
+                if "id" in image and "url" in image:
+                    formatted_album["images"].append(
+                        {"id": image["id"], "url": image["url"]}
+                    )
+            if formatted_album["images"]:
+                formatted_album["cover_image"] = formatted_album["images"][0]
+
+            formatted_albums.append(formatted_album)
+        return formatted_albums
+    except Exception as e:
+        print(f"Error in get_albums: {str(e)}")
+        raise
+
+
+async def get_image_metadata(image_id: str):
+    images_collection = get_collection("images")
+    return await images_collection.find_one({"_id": image_id})
 
 
 def upload_file_to_s3(
@@ -160,19 +254,6 @@ def upload_file_to_s3(
         return f"https://{S3Config.get_bucket_name()}.s3.amazonaws.com/{object_name}"
     except Exception as e:
         print(f"Error uploading to S3: {e}")
-        return None
-
-
-def generate_presigned_url(object_name: str, expiration: int = 3600) -> Optional[str]:
-    try:
-        url = S3Config.client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": S3Config.get_bucket_name(), "Key": object_name},
-            ExpiresIn=expiration,
-        )
-        return url
-    except Exception as e:
-        print(f"Error generating presigned URL: {e}")
         return None
 
 

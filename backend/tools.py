@@ -1,7 +1,6 @@
 import logging
 import os
 from typing import Any, List
-import uuid
 from PIL import Image
 from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
@@ -17,6 +16,38 @@ logger = logging.getLogger(__name__)
 # Qdrant setup
 qdrant_client = QdrantClient("localhost", port=6333)
 collection_name = "family_book_images"
+
+
+def ensure_qdrant_collection():
+    logger.info("ensure_qdrant_collection() function called")
+    try:
+        collection_info = qdrant_client.get_collection(collection_name)
+        if collection_info.config.params.vectors.size != 512:
+            logger.info(
+                f"Recreating collection {collection_name} with correct vector size"
+            )
+            qdrant_client.recreate_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=512, distance=Distance.COSINE),
+            )
+            logger.info(f"Collection {collection_name} checked/created successfully")
+        else:
+            logger.info(
+                f"Collection {collection_name} already exists with correct configuration"
+            )
+    except Exception as e:
+        logger.error(f"Error checking collection: {str(e)}")
+        logger.info(f"Attempting to create collection {collection_name}")
+        try:
+            qdrant_client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=512, distance=Distance.COSINE),
+            )
+            logger.info(f"Collection {collection_name} created successfully")
+        except Exception as create_error:
+            logger.error(f"Failed to create collection: {str(create_error)}")
+            raise
+
 
 try:
     collection_info = qdrant_client.get_collection(collection_name)
@@ -34,6 +65,7 @@ except Exception:
 
 class ImageUploadInput(BaseModel):
     filename: str = Field(..., description="Name of the image file to upload")
+    image_id: str = Field(..., description="Unique ID for the image")
 
 
 class ImageUploadTool(BaseTool):
@@ -54,20 +86,15 @@ class ImageUploadTool(BaseTool):
         self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
         self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-    def _run(self, filename: str) -> str:
+    def _run(self, filename: str, image_id: str) -> str:
         try:
-            # Load the image file
-            image_path = os.path.join("dummy", filename)
-            with Image.open(image_path) as image:
+            with Image.open(filename) as image:
                 # Process the image
                 inputs = self.processor(images=image, return_tensors="pt")
                 with torch.no_grad():
                     image_embedding = (
                         self.model.get_image_features(**inputs).numpy().tolist()
                     )
-
-            # Generate a unique ID for the image
-            image_id = str(uuid.uuid4())
 
             # Store the embedding in Qdrant
             self.qdrant_client.upsert(
@@ -105,6 +132,7 @@ class ImageRetrievalTool(BaseTool):
         self.qdrant_client = qdrant_client
         self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
         self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        ensure_qdrant_collection()
 
     def _run(self, text_query: str) -> List[str]:
         try:
