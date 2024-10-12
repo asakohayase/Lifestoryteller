@@ -1,7 +1,5 @@
-// pages/api/generate-album.ts
-
-import type { NextApiRequest, NextApiResponse } from 'next'
-import fetch from 'node-fetch'
+import type { NextApiRequest, NextApiResponse } from 'next';
+import fetch from 'node-fetch';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'POST') {
@@ -20,14 +18,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-    const result = await response.json()
-    console.log("Result", result);
-    if (result.imageId && typeof result.imageId === 'object' && result.imageId.raw) {
-    console.error("Error from FastAPI:", result.imageId.raw);
-    return res.status(500).json({ error: result.imageId.raw });
-    }
-res.status(200).json(result)
-      res.status(200).json(result);
+      const data = await response.json();
+
+      // Validate the data here if needed
+
+      res.status(200).json(data);
     } catch (error) {
       console.error('Error generating album:', error);
       res.status(500).json({ error: 'Error generating album' });
