@@ -62,8 +62,7 @@ export async function generateAlbum(theme: string): Promise<Album> {
 }
 
 export async function getAlbumById(id: string): Promise<Album> {
-  const isServer = typeof window === 'undefined';
-  const baseUrl = isServer ? process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000' : '';
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
   const url = `${baseUrl}/api/albums/${id}`;
 
   const response = await fetch(url);
