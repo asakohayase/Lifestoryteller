@@ -68,7 +68,9 @@ const FamilyPhotoAlbum = () => {
 
   return (
     <div className="w-full py-8 px-12 lg:px-24 bg-white min-h-screen font-poppins">
-      <h1 className="text-4xl font-bold mb-8 text-blue1 text-center">Family Photo Album</h1>
+      <div className="bg-white rounded-lg mb-8 p-4">
+        <h1 className="text-4xl font-extrabold text-gray-800 text-center tracking-tight">LifeStoryteller</h1>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         <UploadPhoto onUpload={handlePhotoUpload} isUploading={isUploading} />

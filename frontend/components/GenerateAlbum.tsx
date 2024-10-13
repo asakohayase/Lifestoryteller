@@ -25,7 +25,7 @@ export default function GenerateAlbum({ onSubmit, isGenerating }: GenerateAlbumP
   return (
     <Card className="bg-white shadow-lg rounded-lg overflow-hidden">
       <CardContent className="p-6">
-        <h2 className="text-xl font-semibold mb-4 text-blue2">Generate Album</h2>
+        <h2 className="text-xl font-semibold mb-4 text-black">Generate Album</h2>
         <form ref={formRef} onSubmit={handleSubmit}>
           <Input
             name="theme"
