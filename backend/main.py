@@ -1,18 +1,17 @@
 import json
 import logging
-import traceback
 import uuid
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
 from tools import ensure_qdrant_collection
-from check import check_id_consistency, check_mongo_data, check_qdrant_data
 from crew import FamilyBookCrew
 from qdrant_client import QdrantClient
 from db import (
     connect_to_mongo,
     close_mongo_connection,
     generate_album_with_presigned_urls,
+    get_album_by_id,
     save_image,
     get_recent_photos,
     get_albums,
@@ -23,7 +22,6 @@ from crewai.crews.crew_output import CrewOutput
 from middleware import add_middleware
 from contextlib import asynccontextmanager
 
-# app = FastAPI()
 qdrant_client = QdrantClient("localhost", port=6333)
 
 logging.basicConfig(
@@ -96,6 +94,9 @@ async def upload_image(file: UploadFile = File(...)):
 
         # Save metadata to MongoDB
         mongo_result = await save_image(image_id, file_path, metadata)
+        if not mongo_result:
+            print("Failed to save image metadata to MongoDB")
+            return {"error": "Failed to save image metadata"}
 
         # Process with FamilyBookCrew
         crew = FamilyBookCrew("upload_job", qdrant_client)
@@ -163,29 +164,26 @@ async def get_albums_route():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/albums/{album_id}")
+async def get_album(album_id: str):
+    logging.debug(f"Received request for album ID: {album_id}")
+    try:
+        album = await get_album_by_id(album_id)
+        if album is None:
+            logging.warning(f"Album not found: {album_id}")
+            raise HTTPException(status_code=404, detail="Album not found")
+        logging.debug(f"Returning album data for ID: {album_id}")
+        return album
+    except Exception as e:
+        logging.error(f"Error processing request for album {album_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # @app.post("/admin/clear-all-data")
 # async def clear_all_data():
 #     await clear_all_images()
 #     clear_qdrant_collection("family_book_images")
 #     return {"message": "All data has been cleared"}
-
-
-@app.get("/check-data")
-async def check_data():
-    qdrant_output = check_qdrant_data("family_book_images")
-    mongo_output = await check_mongo_data("family_photo_album", "albums")
-    return {"qdrant_output": qdrant_output, "mongodb": mongo_output}
-
-
-@app.get("/check-id-consistency")
-async def api_check_id_consistency(limit: int = 5):
-    try:
-        result = await check_id_consistency("family_book_images", "images", limit)
-        return {"message": "ID consistency check completed", "result": result}
-    except Exception as e:
-        error_msg = f"Error in check_id_consistency: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)
-        raise HTTPException(status_code=500, detail=error_msg)
 
 
 if __name__ == "__main__":
