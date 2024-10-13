@@ -3,8 +3,18 @@ export interface Photo {
     url: string;
   }
 
-export interface UploadPhotoProps {
+  export interface UploadPhotoProps {
     onUpload: (formData: FormData) => Promise<void>;
+    isUploading: boolean;
+  }
+
+  export interface RecentPhotoProps {
+    photos: Photo[];
+  }
+
+  export interface GenerateAlbumProps {
+    onSubmit: (theme: string) => Promise<void>;
+    isGenerating: boolean;
   }
 
   export interface Album {
