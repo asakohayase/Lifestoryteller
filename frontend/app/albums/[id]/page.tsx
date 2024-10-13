@@ -8,7 +8,7 @@ export default async function AlbumDetail({ params }: { params: { id: string } }
     const album = await getAlbumById(params.id);
 
     return (
-      <div className="container mx-auto p-6 bg-white min-h-screen font-poppins">
+      <div className="w-full mx-auto p-12 lg:p-24 bg-white min-h-screen font-poppins">
         <Link href="/" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300 mb-6">
           <ArrowLeft className="mr-2 h-5 w-5" />
           Back to Home
