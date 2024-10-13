@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Any, Dict, List, Optional, TypedDict
 from motor.motor_asyncio import (
@@ -11,7 +10,6 @@ import boto3
 from botocore.client import BaseClient
 from botocore.config import Config
 from bson import ObjectId
-from qdrant_client import QdrantClient
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -208,7 +206,6 @@ async def get_recent_photos(limit: int = 8) -> List[Dict[str, Any]]:
 
 
 async def get_albums() -> List[Dict[str, Any]]:
-
     try:
         albums_collection = get_collection("albums")
         cursor = albums_collection.find().sort("_id", -1)
@@ -242,6 +239,27 @@ async def get_albums() -> List[Dict[str, Any]]:
 async def get_image_metadata(image_id: str):
     images_collection = get_collection("images")
     return await images_collection.find_one({"_id": image_id})
+
+
+async def get_album_by_id(album_id: str):
+    try:
+        albums_collection = get_collection("albums")
+        album = await albums_collection.find_one({"_id": album_id})
+
+        if album is None:
+            return None
+
+        formatted_album = {
+            "id": str(album["_id"]),
+            "album_name": album["album_name"],
+            "description": album.get("description", ""),
+            "images": album.get("images", []),
+            "cover_image": album.get("cover_image"),
+        }
+        return formatted_album
+    except Exception as e:
+        print(f"Error fetching album by ID {album_id}: {str(e)}")
+        raise
 
 
 def upload_file_to_s3(
