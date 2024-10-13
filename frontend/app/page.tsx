@@ -11,27 +11,29 @@ import { Album, Photo } from '@/typing';
 const FamilyPhotoAlbum = () => {
   const [recentPhotos, setRecentPhotos] = useState<Photo[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const fetchLatestPhotos = () => {
     fetchRecentPhotos(8)
       .then(setRecentPhotos)
-      .catch(error => console.error('Error fetching recent photos:', error));
+      .catch(error => console.error('Error fetching recent photos:', error))
   };
 
   const fetchLatestAlbums = () => {
     fetchAlbums()
-    .then(fetchedAlbums => {
-      const formattedAlbums = fetchedAlbums.map(album => ({
-        id: album.id,
-        album_name: album.album_name,
-        description: album.description ?? '',
-        images: album.images.map(img => ({ id: img.id, url: img.url })),
-        cover_image: album.cover_image ? { id: album.cover_image.id, url: album.cover_image.url } : undefined
-      }));
-      setAlbums(formattedAlbums);
-    })
-    .catch(error => console.error('Error fetching albums:', error));
-};
+      .then(fetchedAlbums => {
+        const formattedAlbums = fetchedAlbums.map(album => ({
+          id: album.id,
+          album_name: album.album_name,
+          description: album.description ?? '',
+          images: album.images.map(img => ({ id: img.id, url: img.url })),
+          cover_image: album.cover_image ? { id: album.cover_image.id, url: album.cover_image.url } : undefined
+        }));
+        setAlbums(formattedAlbums);
+      })
+      .catch(error => console.error('Error fetching albums:', error))
+  };
 
   useEffect(() => {
     fetchLatestPhotos();
@@ -41,34 +43,40 @@ const FamilyPhotoAlbum = () => {
 
 
   const handlePhotoUpload = async (formData: FormData) => {
+    setIsUploading(true);
     try {
       await uploadPhoto(formData);
-      fetchLatestPhotos(); // Refetch photos after successful upload
+      fetchLatestPhotos();
     } catch (error) {
       console.error('Error uploading image:', error);
+    } finally {
+      setIsUploading(false);
     }
   };
 
   const handleAlbumSubmit = async (theme: string) => {
+    setIsGenerating(true);
     try {
       const newAlbum = await generateAlbum(theme);
       setAlbums(prevAlbums => [...prevAlbums, newAlbum]);
     } catch (error) {
       console.error('Error generating album:', error);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
   return (
-    <div className="container mx-auto p-6 bg-white min-h-screen font-poppins">
-      <h1 className="text-4xl font-bold mb-8 text-blue1">Family Photo Album</h1>
+    <div className="w-full py-8 px-12 lg:px-24 bg-white min-h-screen font-poppins">
+      <h1 className="text-4xl font-bold mb-8 text-blue1 text-center">Family Photo Album</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-        <UploadPhoto onUpload={handlePhotoUpload} />
-        <GenerateAlbum onSubmit={handleAlbumSubmit} />
+        <UploadPhoto onUpload={handlePhotoUpload} isUploading={isUploading} />
+        <GenerateAlbum onSubmit={handleAlbumSubmit} isGenerating={isGenerating} />
       </div>
       
       <RecentPhotos photos={recentPhotos} />
-      <AlbumList albums={albums} />
+      <AlbumList albums={albums}  />
     </div>
   );
 };

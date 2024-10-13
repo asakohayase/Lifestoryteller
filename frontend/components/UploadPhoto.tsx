@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { UploadPhotoProps } from '@/typing';
 
 
-export default function UploadPhoto({ onUpload }: UploadPhotoProps) {
+export default function UploadPhoto({ onUpload, isUploading }: UploadPhotoProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,7 +46,16 @@ export default function UploadPhoto({ onUpload }: UploadPhotoProps) {
             type="submit"
             className="bg-blue2 hover:bg-blue1 text-white font-semibold py-2 px-4 rounded-md transition duration-300 shadow-md"
           >
-            <Upload className="mr-2 h-4 w-4" /> Upload
+             {isUploading ? (
+              <div className="flex items-center">
+                <div className="animate-pulse bg-gradient-to-r from-gray-300 to-gray-400 h-4 w-4 rounded-full mr-2"></div>
+                Uploading...
+              </div>
+            ) : (
+              <>
+                <Upload className="mr-2 h-4 w-4" /> Upload
+              </>
+            )}
           </Button>
         </CardFooter>
       </form>
