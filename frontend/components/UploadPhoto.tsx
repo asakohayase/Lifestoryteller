@@ -6,7 +6,6 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { UploadPhotoProps } from '@/typing';
 
-
 export default function UploadPhoto({ onUpload, isUploading }: UploadPhotoProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,15 +30,13 @@ export default function UploadPhoto({ onUpload, isUploading }: UploadPhotoProps)
       }
     }
   };
+  
   return (
     <Card className="bg-white shadow-lg rounded-lg overflow-hidden">
       <form ref={formRef} onSubmit={handleSubmit}>
         <CardContent className="p-6">
-          <h2 className="text-xl font-semibold mb-4 text-blue2">Upload a Photo</h2>
-          <div className="grid w-full items-center gap-3">
-            <Label htmlFor="file" className="text-black font-medium">Picture</Label>
-            <Input  id="file"  name="file" type="file"  ref={fileInputRef} className="bg-white text-black focus:ring-blue2" />
-          </div>
+          <Label htmlFor="file" className="text-xl font-semibold mb-4 text-blue2 block">Upload a Photo</Label>
+          <Input id="file" name="file" type="file" ref={fileInputRef} className="bg-white text-black focus:ring-blue2" />
         </CardContent>
         <CardFooter className="bg-white1 p-4">
           <Button 
