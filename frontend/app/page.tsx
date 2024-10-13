@@ -28,7 +28,6 @@ const FamilyPhotoAlbum = () => {
         images: album.images.map(img => ({ id: img.id, url: img.url })),
         cover_image: album.cover_image ? { id: album.cover_image.id, url: album.cover_image.url } : undefined
       }));
-      console.log(formattedAlbums[0].images)
       setAlbums(formattedAlbums);
     })
     .catch(error => console.error('Error fetching albums:', error));
@@ -52,7 +51,6 @@ const FamilyPhotoAlbum = () => {
 
   const handleAlbumSubmit = async (theme: string) => {
     try {
-      console.log("Handling album submit in page.tsx");
       const newAlbum = await generateAlbum(theme);
       setAlbums(prevAlbums => [...prevAlbums, newAlbum]);
     } catch (error) {

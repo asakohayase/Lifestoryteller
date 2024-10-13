@@ -8,7 +8,7 @@ export default function AlbumList({ albums }: AlbumListProps) {
   const router = useRouter();
 
   const handleAlbumClick = (albumId: string) => {
-    router.push(`/album/${albumId}`);
+    router.push(`/albums/${albumId}`);
   };
 
   return (

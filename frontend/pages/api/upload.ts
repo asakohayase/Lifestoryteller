@@ -12,11 +12,9 @@ export const config = {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  console.log("API route /api/upload called");
   if (req.method === 'POST') {
     const form = new IncomingForm()
     form.parse(req, async (err: Error | null, fields: Fields, files: Files) => {
-      console.log("Form parsed", { err, fields, files });
       if (err) {
         console.error("Error parsing form", err);
         return res.status(500).json({ error: 'Error parsing form data' })
@@ -36,16 +34,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const response = await fetch('http://127.0.0.1:8000/upload-image', {
           method: 'POST',
           body: formData,
-        });
-      
-        console.log("Response received", { status: response.status });
-      
+        });    
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
       
         const result = await response.json();
-        console.log("Result", result);
       
         if (!result.image_id) {
           throw new Error('No image ID received from server');
