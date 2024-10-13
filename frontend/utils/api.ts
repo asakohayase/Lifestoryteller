@@ -60,3 +60,26 @@ export async function generateAlbum(theme: string): Promise<Album> {
     cover_image: data.cover_image
   };
 }
+
+export async function getAlbumById(id: string): Promise<Album> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+  const url = `${baseUrl}/api/albums/${id}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Failed to fetch album');
+  }
+  const data = await response.json();
+  
+  if (!data.id || !data.album_name || !data.description || !Array.isArray(data.images)) {
+    throw new Error('Invalid album data format');
+  }
+
+  return {
+    id: data.id,
+    album_name: data.album_name,
+    description: data.description,
+    images: data.images,
+    cover_image: data.cover_image
+  };
+}
