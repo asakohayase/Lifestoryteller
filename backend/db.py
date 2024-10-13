@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import logging
 from typing import Any, Dict, List, Optional, TypedDict
 from motor.motor_asyncio import (
@@ -116,7 +117,12 @@ def get_collection(name: str) -> AsyncIOMotorCollection:
 async def save_image(image_id: str, file_path: str, metadata: Dict[str, Any]) -> str:
     images_collection = get_collection("images")
     result = await images_collection.insert_one(
-        {"_id": image_id, "file_path": file_path, "metadata": metadata}
+        {
+            "_id": image_id,
+            "file_path": file_path,
+            "metadata": metadata,
+            "created_at": datetime.now(timezone.utc),
+        }
     )
     return str(result.inserted_id)
 
@@ -131,6 +137,7 @@ async def save_album(
             "description": description,
             "images": images,
             "cover_image": images[0] if images else None,
+            "created_at": datetime.now(timezone.utc),
         }
     )
     return str(result.inserted_id)
@@ -184,7 +191,7 @@ async def generate_album_with_presigned_urls(
 async def get_recent_photos(limit: int = 8) -> List[Dict[str, Any]]:
     try:
         images_collection = get_collection("images")
-        cursor = images_collection.find().sort("_id", -1).limit(limit)
+        cursor = images_collection.find().sort("created_at", -1).limit(limit)
         photos = await cursor.to_list(length=limit)
         return [
             {
@@ -197,6 +204,9 @@ async def get_recent_photos(limit: int = 8) -> List[Dict[str, Any]]:
                     },
                     ExpiresIn=3600,
                 ),
+                "createdAt": (
+                    photo["created_at"].isoformat() if "created_at" in photo else None
+                ),
             }
             for photo in photos
         ]
@@ -208,7 +218,7 @@ async def get_recent_photos(limit: int = 8) -> List[Dict[str, Any]]:
 async def get_albums() -> List[Dict[str, Any]]:
     try:
         albums_collection = get_collection("albums")
-        cursor = albums_collection.find().sort("_id", -1)
+        cursor = albums_collection.find().sort("created_at", -1)
         albums = await cursor.to_list(length=None)
 
         formatted_albums = []
@@ -219,6 +229,9 @@ async def get_albums() -> List[Dict[str, Any]]:
                 "description": album.get("description", ""),
                 "images": [],
                 "cover_image": None,
+                "createdAt": (
+                    album["created_at"].isoformat() if "created_at" in album else None
+                ),
             }
 
             for image in album.get("images", []):
