@@ -14,7 +14,7 @@ export default function RecentPhotos({ photos }: { photos: Photo[] }) {
 
   return (
     <div className="mb-8">
-      <h2 className="text-2xl font-semibold mb-4 text-blue2">Recent Photos</h2>
+      <h2 className="text-2xl font-semibold mb-4 text-black">Recent Photos</h2>
       {photos.length === 0 ? (
         <div className="bg-white overflow-hidden p-6 text-center">
           <Camera className="mx-auto h-12 w-12 text-gray-400 mb-4" />

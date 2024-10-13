@@ -35,7 +35,7 @@ export default function UploadPhoto({ onUpload, isUploading }: UploadPhotoProps)
     <Card className="bg-white shadow-lg rounded-lg overflow-hidden">
       <form ref={formRef} onSubmit={handleSubmit}>
         <CardContent className="p-6">
-          <Label htmlFor="file" className="text-xl font-semibold mb-4 text-blue2 block">Upload a Photo</Label>
+          <Label htmlFor="file" className="text-xl font-semibold mb-4 text-black block">Upload a Photo</Label>
           <Input id="file" name="file" type="file" ref={fileInputRef} className="bg-white text-black focus:ring-blue2" />
         </CardContent>
         <CardFooter className="bg-white1 p-4">
