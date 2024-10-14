@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { getAlbumById } from '@/utils/api';
-import { ArrowLeft } from 'lucide-react'; 
+import { ArrowLeft, Calendar } from 'lucide-react'; 
 
 export default async function AlbumDetail({ params }: { params: { id: string } }) {
   try {
@@ -14,7 +14,13 @@ export default async function AlbumDetail({ params }: { params: { id: string } }
           Back to Home
         </Link>
         <h1 className="text-4xl font-bold mb-4 text-blue1">{album.album_name}</h1>
-        <p className="text-lg mb-8 text-gray-600">{album.description}</p>
+        <p className="text-lg mb-2 text-gray-600">{album.description}</p>
+        {album.createdAt && (
+          <p className="text-sm mb-8 text-gray-500 flex items-center">
+            <Calendar className="mr-2 h-4 w-4" />
+            Created on: {new Date(album.createdAt).toLocaleDateString()}
+          </p>
+        )}
         
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {album.images.map((photo) => (
