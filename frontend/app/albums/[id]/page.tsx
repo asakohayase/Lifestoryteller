@@ -34,9 +34,9 @@ export default async function AlbumDetail({ params }: { params: { id: string } }
   } catch (error) {
     console.error('Error fetching album:', error);
     return (
-      <div className="container mx-auto p-6 bg-white min-h-screen font-poppins">
+      <div className="w-full mx-auto p-6 bg-white min-h-screen font-poppins">
         <h1 className="text-4xl font-bold mb-4 text-red-500">Error</h1>
-        <p className="text-lg mb-4">Failed to load album. Please try again later.</p>
+        <p className="text-lg mb-4 text-black">Failed to load album. Please try again later.</p>
         <Link href="/" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300">
           <ArrowLeft className="mr-2 h-5 w-5" />
           Back to Home
