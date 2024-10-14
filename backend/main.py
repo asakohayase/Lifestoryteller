@@ -170,9 +170,7 @@ async def get_album(album_id: str):
     try:
         album = await get_album_by_id(album_id)
         if album is None:
-            logging.warning(f"Album not found: {album_id}")
             raise HTTPException(status_code=404, detail="Album not found")
-        logging.debug(f"Returning album data for ID: {album_id}")
         return album
     except Exception as e:
         logging.error(f"Error processing request for album {album_id}: {str(e)}")

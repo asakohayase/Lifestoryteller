@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import logging
 from typing import Any, Dict, List, Optional, TypedDict
+from urllib.parse import unquote
 from motor.motor_asyncio import (
     AsyncIOMotorClient,
     AsyncIOMotorDatabase,
@@ -257,19 +258,56 @@ async def get_image_metadata(image_id: str):
 async def get_album_by_id(album_id: str):
     try:
         albums_collection = get_collection("albums")
-        album = await albums_collection.find_one({"_id": album_id})
+
+        object_id = ObjectId(album_id)
+        album = await albums_collection.find_one({"_id": object_id})
 
         if album is None:
+            print(f"No album found with ID: {album_id}")
             return None
 
         formatted_album = {
             "id": str(album["_id"]),
             "album_name": album["album_name"],
             "description": album.get("description", ""),
-            "images": album.get("images", []),
-            "cover_image": album.get("cover_image"),
+            "images": [],
+            "cover_image": None,
+            "createdAt": (
+                album["created_at"].isoformat() if "created_at" in album else None
+            ),
         }
+
+        for image in album.get("images", []):
+            try:
+                # Extract the full filename from the URL
+                full_filename_encoded = image["url"].split("/")[-1].split("?")[0]
+                # Decode the URL-encoded filename
+                full_filename = unquote(full_filename_encoded)
+
+                # Generate the presigned URL using the decoded filename
+                presigned_url = s3_client.generate_presigned_url(
+                    "get_object",
+                    Params={
+                        "Bucket": S3Config.get_bucket_name(),
+                        "Key": full_filename,
+                    },
+                    ExpiresIn=3600,
+                )
+
+                # Append the presigned URL to the formatted album
+                formatted_album["images"].append(
+                    {"id": image["id"], "url": presigned_url}
+                )
+            except Exception as e:
+                print(
+                    f"Error generating presigned URL for image {image['id']}: {str(e)}"
+                )
+
+        # Set the cover image to the first image if available
+        if formatted_album["images"]:
+            formatted_album["cover_image"] = formatted_album["images"][0]
         return formatted_album
+
     except Exception as e:
         print(f"Error fetching album by ID {album_id}: {str(e)}")
         raise
