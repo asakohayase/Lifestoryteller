@@ -80,6 +80,7 @@ export async function getAlbumById(id: string): Promise<Album> {
     album_name: data.album_name,
     description: data.description,
     images: data.images,
-    cover_image: data.cover_image
+    cover_image: data.cover_image,
+    createdAt: data.createdAt
   };
 }
