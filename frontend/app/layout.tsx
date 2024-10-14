@@ -8,7 +8,7 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "Family Photo Album",
+  title: "LifeStoryteller",
   description: "Capture and share your unique story with our digital album service, where you can easily create personalized albums filled with cherished memories and themes that resonate with you. Relive your moments anytime, anywhere!",
 };
 
