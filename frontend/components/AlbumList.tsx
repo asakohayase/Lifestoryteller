@@ -1,6 +1,6 @@
 "use client"
 
-import { BookOpen, Image as ImageIcon, Plus, Trash2, X } from 'lucide-react';
+import { BookOpen, Image as ImageIcon, Trash2} from 'lucide-react';
 import { Card, CardContent} from "@/components/ui/card"
 import { AlbumListProps } from '@/typing';
 import Image from 'next/image';
