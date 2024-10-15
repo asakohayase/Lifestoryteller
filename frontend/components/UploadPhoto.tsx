@@ -42,6 +42,7 @@ export default function UploadPhoto({ onUpload, isUploading }: UploadPhotoProps)
           <Button 
             type="submit"
             className="bg-blue2 hover:bg-blue1 text-white font-semibold py-2 px-4 rounded-md transition duration-300 shadow-md"
+            disabled={isUploading}
           >
              {isUploading ? (
               <div className="flex items-center">

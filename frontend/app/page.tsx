@@ -77,8 +77,8 @@ const FamilyPhotoAlbum = () => {
         <GenerateAlbum onSubmit={handleAlbumSubmit} isGenerating={isGenerating} />
       </div>
       
-      <RecentPhotos photos={recentPhotos} />
-      <AlbumList albums={albums}  />
+      <RecentPhotos photos={recentPhotos} onPhotoDeleted={fetchLatestPhotos} />
+      <AlbumList albums={albums} onAlbumsDeleted={fetchLatestAlbums} />
     </div>
   );
 };
