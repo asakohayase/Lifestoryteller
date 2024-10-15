@@ -332,6 +332,82 @@ def upload_file_to_s3(
         return None
 
 
+async def delete_multiple_photos(image_ids: List[str]) -> Dict[str, Any]:
+    """
+    Delete multiple photos from the database and S3.
+
+    :param image_ids: List of photo IDs to delete
+    :return: Dictionary with successful and failed deletions
+    """
+    results = {"successful": [], "failed": []}
+    images_collection = get_collection("images")
+    albums_collection = get_collection("albums")
+    print(f"Attempting to delete photos: {image_ids}")
+
+    for image_id in image_ids:
+        try:
+            photo_doc = await images_collection.find_one({"_id": image_id})
+            if not photo_doc:
+                results["failed"].append(image_id)
+                continue
+
+            # Delete from S3
+            s3_object_name = photo_doc["metadata"]["s3_object_name"]
+            try:
+                S3Config.client.delete_object(
+                    Bucket=S3Config.get_bucket_name(),
+                    Key=s3_object_name
+                )
+            except Exception as e:
+                logger.error(f"Error deleting photo from S3: {str(e)}")
+                results["failed"].append(image_id)
+                continue
+
+            # Delete from MongoDB
+            delete_result = await images_collection.delete_one({"_id": image_id})
+            if delete_result.deleted_count == 0:
+                results["failed"].append(image_id)
+                continue
+
+            # Remove from albums
+            await albums_collection.update_many(
+                {"images.id": image_id},
+                {"$pull": {"images": {"id": image_id}}}
+            )
+
+            results["successful"].append(image_id)
+        except Exception as e:
+            logger.error(f"Error deleting photo with ID {image_id}: {str(e)}")
+            results["failed"].append(image_id)
+
+    return results
+
+async def delete_multiple_albums(album_ids: List[str]) -> Dict[str, Any]:
+    """
+    Delete multiple albums from the database.
+
+    :param album_ids: List of album IDs to delete
+    :return: Dictionary with successful and failed deletions
+    """
+    results = {"successful": [], "failed": []}
+    albums_collection = get_collection("albums")
+
+    for album_id in album_ids:
+        try:
+            print(f"Attempting to delete album with ID: {album_id}, Type: {type(album_id)}")
+            object_id = ObjectId(album_id)
+            delete_result = await albums_collection.delete_one({"_id": object_id})
+            if delete_result.deleted_count == 0:
+                results["failed"].append(album_id)
+            else:
+                results["successful"].append(album_id)
+        except Exception as e:
+            logger.error(f"Error deleting album with ID {album_id}: {str(e)}")
+            results["failed"].append(album_id)
+
+    return results
+
+
 # async def clear_all_images():
 #     db = get_db()
 #     await db.images.delete_many({})

@@ -11,6 +11,7 @@ export interface Photo {
 
   export interface RecentPhotoProps {
     photos: Photo[];
+    onPhotoDeleted: () => void 
   }
 
   export interface GenerateAlbumProps {
@@ -29,5 +30,6 @@ export interface Photo {
   
 export interface AlbumListProps {
     albums: Album[];
+    onAlbumsDeleted: () => void;
   }
   
