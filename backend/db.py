@@ -250,8 +250,9 @@ async def get_albums() -> List[Dict[str, Any]]:
 
             for image in album.get("images", []):
                 if "id" in image and "url" in image:
+                    presigned_url = generate_presigned_url(unquote(image["url"].split("/")[-1].split("?")[0]))
                     formatted_album["images"].append(
-                        {"id": image["id"], "url": image["url"]}
+                        {"id": image["id"], "url": presigned_url}
                     )
             if formatted_album["images"]:
                 formatted_album["cover_image"] = formatted_album["images"][0]
