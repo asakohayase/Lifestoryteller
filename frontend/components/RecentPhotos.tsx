@@ -9,13 +9,9 @@ import { deleteMultiplePhotos } from '@/utils/api';
 
 
 export default function RecentPhotos({ photos, onPhotoDeleted }: RecentPhotoProps) {
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleImageError = (photoId: string) => {
-    setImageErrors(prev => ({ ...prev, [photoId]: true }));
-  };
 
   const handleSelectPhoto = (photoId: string) => {
     setSelectedPhotos(prev => 
@@ -70,7 +66,7 @@ export default function RecentPhotos({ photos, onPhotoDeleted }: RecentPhotoProp
           <Card key={photo.id} className="bg-white shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg overflow-hidden">
             <CardContent className="p-2">
               <div className="aspect-square bg-gray-200 rounded-md overflow-hidden relative">
-                {photo.url && !imageErrors[photo.id] ? (
+                {photo.url  ? (
                   <Image 
                     src={photo.url} 
                     alt="Uploaded photo" 
@@ -79,7 +75,6 @@ export default function RecentPhotos({ photos, onPhotoDeleted }: RecentPhotoProp
                     style={{
                       objectFit: 'cover',
                     }}
-                    onError={() => handleImageError(photo.id)}
                   />
                 ) : (
                   <ImageIcon className="h-full w-full text-gray-400 p-4" />
