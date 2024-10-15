@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getAlbumById } from '@/utils/api';
-import { ArrowLeft, Calendar } from 'lucide-react';
+import { ArrowLeft, Calendar, ImageIcon } from 'lucide-react';
 import { Album } from '@/typing';
 
 
@@ -12,6 +12,7 @@ export default function AlbumDetail({ params }: { params: { id: string } }) {
   const [album, setAlbum] = useState<Album| null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+ 
 
   useEffect(() => {
     async function fetchAlbum() {
@@ -68,13 +69,19 @@ export default function AlbumDetail({ params }: { params: { id: string } }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {album.images.map((photo) => (
           <div key={photo.id} className="aspect-square relative rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
-            <Image 
-              src={photo.url}
-              alt={`Photo in ${album.album_name}`}
-              fill
-              sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              style={{ objectFit: 'cover' }}
-            />
+            {photo.url ? (
+              <Image 
+                src={photo.url}
+                alt={`Photo in ${album.album_name}`}
+                fill
+                sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                style={{ objectFit: 'cover' }}
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                <ImageIcon className="h-1/2 w-1/2 text-gray-400" />
+              </div>
+            )}
           </div>
         ))}
       </div>

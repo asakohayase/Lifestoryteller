@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import List
 import uuid
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
@@ -10,6 +11,8 @@ from qdrant_client import QdrantClient
 from db import (
     connect_to_mongo,
     close_mongo_connection,
+    delete_multiple_albums,
+    delete_multiple_photos,
     generate_album_with_presigned_urls,
     get_album_by_id,
     save_image,
@@ -67,6 +70,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 add_middleware(app)
+
+class BulkDeletePhotosRequest(BaseModel):
+    photo_ids: List[str]
+
+class BulkDeleteAlbumsRequest(BaseModel):
+    album_ids: List[str]
 
 
 @app.post("/upload-image")
@@ -175,6 +184,49 @@ async def get_album(album_id: str):
     except Exception as e:
         logging.error(f"Error processing request for album {album_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+# @app.delete("/photos/{image_id}")
+# async def delete_photo_route(image_id: str):
+#     result = await delete_multiple_photos([image_id])
+#     if result["successful"]:
+#         return {"message": f"Photo {image_id} deleted successfully"}
+#     else:
+#         raise HTTPException(status_code=404, detail="Photo not found or could not be deleted")
+
+# @app.delete("/albums/{album_id}")
+# async def delete_album_route(album_id: str):
+#     result = await delete_multiple_albums([album_id])
+#     if result["successful"]:
+#         return {"message": f"Album {album_id} deleted successfully"}
+#     else:
+#         raise HTTPException(status_code=404, detail="Album not found or could not be deleted")
+
+@app.post("/photos/bulk-delete")
+async def bulk_delete_photos(request: BulkDeletePhotosRequest):
+    try:   
+        result = await delete_multiple_photos(request.photo_ids)
+        return {
+            "message": f"Deleted {len(result['successful'])} photos successfully",
+            "successful": result['successful'],
+            "failed": result['failed']
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/albums/bulk-delete")
+async def bulk_delete_albums(request: BulkDeleteAlbumsRequest):
+    try:
+        result = await delete_multiple_albums(request.album_ids)
+        return {
+        "message": f"Deleted {len(result['successful'])} albums successfully",
+        "successful": result["successful"],
+        "failed": result["failed"]
+    }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 # @app.post("/admin/clear-all-data")
