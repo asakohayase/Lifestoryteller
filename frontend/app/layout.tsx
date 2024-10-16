@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import "./globals.css";
+import Header from "@/components/Header";
 
 const montserrat = Montserrat({
   weight: ["100", "300", "400", "500", "700", "900"], // Add weights you need
@@ -20,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${ montserrat.className} antialiased`}>
+      <Header />
         {children}
       </body>
     </html>

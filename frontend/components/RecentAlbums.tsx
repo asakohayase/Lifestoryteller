@@ -21,7 +21,6 @@ export default function RecentAlbums({ albums,  onAlbumsDeleted }: AlbumListProp
     router.push(`/albums/${albumId}`);
   };
 
-
   const handleSelectAlbum = (albumId: string, event: React.MouseEvent) => {
     event.stopPropagation();
     setSelectedAlbums(prev => 
@@ -100,7 +99,7 @@ export default function RecentAlbums({ albums,  onAlbumsDeleted }: AlbumListProp
               <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                 <h3 className="text-lg font-semibold truncate">{album.album_name}</h3>
                 <p className="text-sm"> {album.images.length} {album.images.length === 1 ? 'photo' : 'photos'} </p>
-              </div>
+             </div>
               <div className="absolute top-2 left-2 z-10" onClick={(e) => handleSelectAlbum(album.id, e)}>
                 <Checkbox
                   checked={selectedAlbums.includes(album.id)}

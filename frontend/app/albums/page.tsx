@@ -66,7 +66,7 @@ export default function AllAlbums() {
 
   if (error) {
     return (
-      <div className="w-full mx-auto p-6 bg-white min-h-screen font-poppins">
+      <div className="w-full mx-auto p-6 bg-white min-h-screen">
         <h1 className="text-4xl font-bold mb-4 text-red-500">Error</h1>
         <p className="text-lg mb-4 text-black">{error}</p>
         <Link href="/" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300">
@@ -78,7 +78,7 @@ export default function AllAlbums() {
   }
 
   return (
-    <div className="w-full mx-auto p-12 lg:p-24 bg-white min-h-screen font-poppins">
+    <div className="w-full mx-auto px-12 py-8 lg:px-24 bg-white min-h-screen">
       <div className="flex justify-between items-center mb-6">
         <Link href="/" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300">
           <ArrowLeft className="mr-2 h-5 w-5" />
@@ -96,7 +96,6 @@ export default function AllAlbums() {
         )}
       </div>
       <h1 className="text-4xl font-bold mb-4 text-blue1">All Albums</h1>
-      
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {albums.map((album) => (
           <Link key={album.id} href={`/albums/${album.id}`}>
