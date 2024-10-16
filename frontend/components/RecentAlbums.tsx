@@ -9,8 +9,9 @@ import { deleteMultipleAlbums } from '@/utils/api';
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
+import Link from 'next/link';
 
-export default function AlbumList({ albums,  onAlbumsDeleted }: AlbumListProps) {
+export default function RecentAlbums({ albums,  onAlbumsDeleted }: AlbumListProps) {
   const [selectedAlbums, setSelectedAlbums] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
   
@@ -52,16 +53,22 @@ export default function AlbumList({ albums,  onAlbumsDeleted }: AlbumListProps) 
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-semibold text-black">Albums</h2>
-        {selectedAlbums.length > 0 && (
-          <Button
-            variant="destructive"
-            onClick={handleDeleteSelectedAlbums}
-            disabled={isDeleting}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            {isDeleting ? 'Deleting...' : `Delete Selected (${selectedAlbums.length})`}
-          </Button>
-        )}
+        <div className="flex-grow"></div>
+        <div className="flex items-center space-x-4">
+          {selectedAlbums.length > 0 && (
+            <Button
+              variant="destructive"
+              onClick={handleDeleteSelectedAlbums}
+              disabled={isDeleting}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {isDeleting ? 'Deleting...' : `Delete Selected (${selectedAlbums.length})`}
+            </Button>
+          )}
+          <Link href="/albums" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300">
+            View All Albums
+          </Link>
+        </div>
       </div>
       {albums.length === 0 ? (
         <div className="bg-white overflow-hidden p-6 text-center">
@@ -71,37 +78,36 @@ export default function AlbumList({ albums,  onAlbumsDeleted }: AlbumListProps) 
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {albums.map((album) => (
-            <Card 
+            <div 
               key={album.id} 
-              className="bg-white shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg overflow-hidden cursor-pointer"
+              className="aspect-square relative rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 cursor-pointer"
               onClick={() => handleAlbumClick(album.id)}
             >
-              <CardContent className="p-2 relative">
-                <div className="aspect-square bg-gray-200 rounded-md overflow-hidden relative">
-                  {album.cover_image ? (
-                    <Image 
-                      src={album.cover_image.url}
-                      alt={`Cover of ${album.album_name}`}
-                      fill
-                      sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                      style={{
-                        objectFit: 'cover',
-                      }}
-                    />
-                  ) : (
-                    <ImageIcon className="h-full w-full text-gray-400 p-4" />
-                  )}
-                  <div className="absolute top-2 left-2 z-10" onClick={(e) => handleSelectAlbum(album.id, e)}>
-                    <Checkbox
-                      checked={selectedAlbums.includes(album.id)}
-                      onCheckedChange={() => {}}
-                    />
-                  </div>
+              {album.cover_image ? (
+                <Image 
+                  src={album.cover_image.url}
+                  alt={`Cover of ${album.album_name}`}
+                  fill
+                  sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  style={{ objectFit: 'cover' }}
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                  <ImageIcon className="h-1/2 w-1/2 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-blue2 truncate mt-2">{album.album_name}</h3>
-                <p className="text-sm text-gray-600">{album.images.length} photos</p>
-              </CardContent>
-            </Card>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black opacity-60"></div>
+              <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                <h3 className="text-lg font-semibold truncate">{album.album_name}</h3>
+                <p className="text-sm"> {album.images.length} {album.images.length === 1 ? 'photo' : 'photos'} </p>
+              </div>
+              <div className="absolute top-2 left-2 z-10" onClick={(e) => handleSelectAlbum(album.id, e)}>
+                <Checkbox
+                  checked={selectedAlbums.includes(album.id)}
+                  onCheckedChange={() => {}}
+                />
+              </div>
+            </div>
           ))}
         </div>
       )}
