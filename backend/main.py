@@ -177,7 +177,6 @@ async def get_all_albums_route(skip: int = 0, limit: int = 100):
         for album in albums:
             if 'images' not in album or not album['images']:
                 logger.warning(f"Album {album['id']} has no images")
-        print(f"Returning {len(albums)} albums")
         return {"albums": albums}
     except Exception as e:
         print(f"Error fetching all albums: {str(e)}")

@@ -53,9 +53,11 @@ export default function RecentPhotos({ photos, onPhotoDeleted }: RecentPhotoProp
               {isDeleting ? 'Deleting...' : `Delete Selected (${selectedPhotos.length})`}
             </Button>
           )}
+          {photos.length > 0 && (
           <Link href="/photos" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300">
             View All Photos
           </Link>
+          )}
         </div>
       </div>
     {photos.length === 0 ? (
