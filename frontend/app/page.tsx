@@ -23,12 +23,23 @@ const FamilyPhotoAlbum = () => {
   const getLatestAlbums = () => {
     getRecentAlbums(4)
       .then(fetchedAlbums => {
-        const formattedAlbums = fetchedAlbums.map(album => ({
+        const formattedAlbums: Album[] = fetchedAlbums.map(album => ({
           id: album.id,
           album_name: album.album_name,
           description: album.description ?? '',
-          images: album.images.map(img => ({ id: img.id, url: img.url })),
-          cover_image: album.cover_image ? { id: album.cover_image.id, url: album.cover_image.url } : undefined
+          images: album.images.map(img => ({ 
+            id: img.id, 
+            url: img.url,
+            createdAt: img.createdAt 
+          })),
+          cover_image: album.cover_image 
+            ? { 
+                id: album.cover_image.id, 
+                url: album.cover_image.url,
+                createdAt: album.cover_image.createdAt 
+              } 
+            : undefined,
+          createdAt: album.createdAt
         }));
         setAlbums(formattedAlbums);
       })

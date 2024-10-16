@@ -64,7 +64,7 @@ export default function AllPhotos() {
 
   if (error) {
     return (
-      <div className="w-full mx-auto p-6 bg-white min-h-screen">
+      <div className="w-full mx-auto px-12 py-8 lg:px-24 bg-white min-h-screen">
         <h1 className="text-4xl font-bold mb-4 text-red-500">Error</h1>
         <p className="text-lg mb-4 text-black">{error}</p>
         <Link href="/" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300">
@@ -77,23 +77,25 @@ export default function AllPhotos() {
 
   return (
     <div className="w-full mx-auto px-12 py-8 lg:px-24 bg-white min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <Link href="/" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300">
+       <div className="flex flex-col mb-6">
+        <Link href="/" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300 mb-4">
           <ArrowLeft className="mr-2 h-5 w-5" />
           Back to Home
         </Link>
-        {selectedPhotos.length > 0 && (
-          <Button
-            variant="destructive"
-            onClick={handleDeleteSelectedPhotos}
-            disabled={isDeleting}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            {isDeleting ? 'Deleting...' : `Delete Selected (${selectedPhotos.length})`}
-          </Button>
-        )}
+        <div className="flex justify-between items-center">
+          <h1 className="text-4xl font-bold text-blue1">All Photos</h1>
+          {selectedPhotos.length > 0 && (
+            <Button
+              variant="destructive"
+              onClick={handleDeleteSelectedPhotos}
+              disabled={isDeleting}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {isDeleting ? 'Deleting...' : `Delete Selected (${selectedPhotos.length})`}
+            </Button>
+          )}
+        </div>
       </div>
-      <h1 className="text-4xl font-bold mb-4 text-blue1">All Photos</h1>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {photos.map((photo) => (
