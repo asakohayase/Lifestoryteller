@@ -208,8 +208,92 @@ async def generate_album_with_presigned_urls(
 
     return result
 
+async def get_albums() -> List[Dict[str, Any]]:
+    try:
+        albums_collection = get_collection("albums")
+        cursor = albums_collection.find().sort("created_at", -1)
+        albums = await cursor.to_list(length=None)
 
-async def get_recent_photos(limit: int = 8) -> List[Dict[str, Any]]:
+        formatted_albums = []
+        for album in albums:
+            formatted_album = {
+                "id": str(album["_id"]),
+                "album_name": album["album_name"],
+                "description": album.get("description", ""),
+                "images": [],
+                "cover_image": None,
+                "createdAt": (
+                    album["created_at"].isoformat() if "created_at" in album else None
+                ),
+            }
+
+            for image in album.get("images", []):
+                if "id" in image and "url" in image:
+                    presigned_url = generate_presigned_url(unquote(image["url"].split("/")[-1].split("?")[0]))
+                    formatted_album["images"].append(
+                        {"id": image["id"], "url": presigned_url}
+                    )
+            if formatted_album["images"]:
+                formatted_album["cover_image"] = formatted_album["images"][0]
+
+            formatted_albums.append(formatted_album)
+        return formatted_albums
+    except Exception as e:
+        print(f"Error in get_albums: {str(e)}")
+        raise
+
+
+async def get_all_photos(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+    try:
+        images_collection = get_collection("images")
+        cursor = images_collection.find().sort("created_at", -1).skip(skip).limit(limit)
+        photos = await cursor.to_list(length=limit)
+        return [
+            {
+                "id": str(photo["_id"]),
+                "url": generate_presigned_url(photo["metadata"]["s3_object_name"]),
+                "createdAt": (
+                    photo["created_at"].isoformat() if "created_at" in photo else None
+                ),
+            }
+            for photo in photos
+        ]
+    except Exception as e:
+        logger.error(f"Error in get_all_photos: {str(e)}")
+        raise
+
+async def get_all_albums(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+    try:
+        albums_collection = get_collection("albums")
+        cursor = albums_collection.find().sort("created_at", -1).skip(skip).limit(limit)
+        albums = await cursor.to_list(length=limit)
+        
+        formatted_albums = []
+        for album in albums:
+            formatted_album = {
+                "id": str(album["_id"]),
+                "album_name": album["album_name"],
+                "description": album.get("description", ""),
+                "cover_image": None,
+                "images": album.get("images", []),  
+                "image_count": len(album.get("images", [])),
+                "createdAt": (
+                    album["created_at"].isoformat() if "created_at" in album else None
+                ),
+            }
+            if album.get("images"):
+                formatted_album["cover_image"] = {
+                    "id": album["images"][0]["id"],
+                    "url": generate_presigned_url(unquote(album["images"][0]["url"].split("/")[-1].split("?")[0]))
+                }
+            formatted_albums.append(formatted_album)
+        print(f"Formatted {len(formatted_albums)} albums")
+        return formatted_albums
+    except Exception as e:
+        print(f"Error in get_all_albums: {str(e)}")
+        raise
+
+async def get_recent_photos(limit: int = 4) -> List[Dict[str, Any]]:
     try:
         images_collection = get_collection("images")
         cursor = images_collection.find().sort("created_at", -1).limit(limit)
@@ -229,10 +313,10 @@ async def get_recent_photos(limit: int = 8) -> List[Dict[str, Any]]:
         raise
 
 
-async def get_albums() -> List[Dict[str, Any]]:
+async def get_recent_albums(limit: int = 4) -> List[Dict[str, Any]]:
     try:
         albums_collection = get_collection("albums")
-        cursor = albums_collection.find().sort("created_at", -1)
+        cursor = albums_collection.find().sort("created_at", -1).limit(limit)
         albums = await cursor.to_list(length=None)
 
         formatted_albums = []
@@ -407,6 +491,7 @@ async def delete_multiple_albums(album_ids: List[str]) -> Dict[str, Any]:
             results["failed"].append(album_id)
 
     return results
+
 
 
 # async def clear_all_images():

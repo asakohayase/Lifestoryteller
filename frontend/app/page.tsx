@@ -4,9 +4,9 @@ import React, { useEffect, useState } from 'react';
 import UploadPhoto from '@/components/UploadPhoto';
 import GenerateAlbum from '@/components/GenerateAlbum';
 import RecentPhotos from '@/components/RecentPhotos';
-import AlbumList from '@/components/AlbumList';
-import { fetchAlbums, fetchRecentPhotos, generateAlbum, uploadPhoto } from '@/utils/api';
+import { generateAlbum, getRecentAlbums, getRecentPhotos, uploadPhoto } from '@/utils/api';
 import { Album, Photo } from '@/typing';
+import RecentAlbums from '@/components/RecentAlbums';
 
 const FamilyPhotoAlbum = () => {
   const [recentPhotos, setRecentPhotos] = useState<Photo[]>([]);
@@ -14,14 +14,14 @@ const FamilyPhotoAlbum = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const fetchLatestPhotos = () => {
-    fetchRecentPhotos(8)
+  const getLatestPhotos = () => {
+    getRecentPhotos(4)
       .then(setRecentPhotos)
       .catch(error => console.error('Error fetching recent photos:', error))
   };
 
-  const fetchLatestAlbums = () => {
-    fetchAlbums()
+  const getLatestAlbums = () => {
+    getRecentAlbums(4)
       .then(fetchedAlbums => {
         const formattedAlbums = fetchedAlbums.map(album => ({
           id: album.id,
@@ -36,8 +36,8 @@ const FamilyPhotoAlbum = () => {
   };
 
   useEffect(() => {
-    fetchLatestPhotos();
-    fetchLatestAlbums();
+    getLatestPhotos();
+    getLatestAlbums();
   }, []);
 
 
@@ -46,7 +46,7 @@ const FamilyPhotoAlbum = () => {
     setIsUploading(true);
     try {
       await uploadPhoto(formData);
-      fetchLatestPhotos();
+      getLatestPhotos();
     } catch (error) {
       console.error('Error uploading image:', error);
     } finally {
@@ -77,8 +77,8 @@ const FamilyPhotoAlbum = () => {
         <GenerateAlbum onSubmit={handleAlbumSubmit} isGenerating={isGenerating} />
       </div>
       
-      <RecentPhotos photos={recentPhotos} onPhotoDeleted={fetchLatestPhotos} />
-      <AlbumList albums={albums} onAlbumsDeleted={fetchLatestAlbums} />
+      <RecentPhotos photos={recentPhotos} onPhotoDeleted={getLatestPhotos} />
+      <RecentAlbums albums={albums} onAlbumsDeleted={getLatestAlbums} />
     </div>
   );
 };
