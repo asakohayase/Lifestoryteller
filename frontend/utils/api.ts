@@ -14,22 +14,6 @@ export async function uploadPhoto(formData: FormData) {
   return await response.json();
 }
 
-export async function fetchRecentPhotos(limit: number = 8): Promise<Photo[]> {
-  const response = await fetch(`/api/recent-photos?limit=${limit}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch recent photos');
-  }
-  return await response.json();
-}
-
-export const fetchAlbums = async (): Promise<Album[]> => {
-  const response = await fetch('/api/albums');
-  if (!response.ok) {
-    throw new Error('Failed to fetch albums');
-  }
-  return response.json();
-};
-
 
 
 export async function generateAlbum(theme: string): Promise<Album> {
@@ -60,6 +44,43 @@ export async function generateAlbum(theme: string): Promise<Album> {
     cover_image: data.cover_image
   };
 }
+
+export async function getAllPhotos(skip: number = 0, limit: number = 20): Promise<Photo[]> {
+  const response = await fetch(`/api/all-photos?skip=${skip}&limit=${limit}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch photos');
+  }
+  return response.json();
+}
+
+
+export async function getAllAlbums(skip: number = 0, limit: number = 20): Promise<Album[]> {
+  const response = await fetch(`/api/all-albums?skip=${skip}&limit=${limit}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch albums: ${response.status} ${response.statusText}`);
+  }
+  const data = await response.json();
+  if (!Array.isArray(data)) {
+    throw new Error('Invalid response format');
+  }
+  return data;
+}
+
+export async function getRecentPhotos(limit: number = 4): Promise<Photo[]> {
+  const response = await fetch(`/api/recent-photos?limit=${limit}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch recent photos');
+  }
+  return await response.json();
+}
+
+export const getRecentAlbums = async (limit: number = 4): Promise<Album[]> => {
+  const response = await fetch('/api/recent-albums');
+  if (!response.ok) {
+    throw new Error('Failed to fetch albums');
+  }
+  return response.json();
+};
 
 export async function getAlbumById(id: string): Promise<Album> {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -123,3 +144,5 @@ export async function deleteMultipleAlbums(albumIds: string[]): Promise<void> {
     throw new Error(`Failed to delete albums: ${response.status} ${errorText}`);
   }
 }
+
+

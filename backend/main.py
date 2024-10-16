@@ -15,9 +15,11 @@ from db import (
     delete_multiple_photos,
     generate_album_with_presigned_urls,
     get_album_by_id,
+    get_all_albums,
+    get_all_photos,
+    get_recent_albums,
     save_image,
     get_recent_photos,
-    get_albums,
     upload_file_to_s3,
 )
 from crewai.crews.crew_output import CrewOutput
@@ -153,9 +155,13 @@ async def generate_album(request: AlbumRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/all-photos")
+async def get_all_photos_route(skip: int = 0, limit: int = 100):
+    photos = await get_all_photos(skip, limit)
+    return {"photos": photos}
 
 @app.get("/recent-photos")
-async def get_recent_photos_route(limit: int = 8):
+async def get_recent_photos_route(limit: int = 4):
     try:
         photos = await get_recent_photos(limit)
         return {"photos": photos}
@@ -164,10 +170,23 @@ async def get_recent_photos_route(limit: int = 8):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/albums")
-async def get_albums_route():
+@app.get("/all-albums")
+async def get_all_albums_route(skip: int = 0, limit: int = 100):
     try:
-        albums = await get_albums()
+        albums = await get_all_albums(skip, limit)
+        for album in albums:
+            if 'images' not in album or not album['images']:
+                logger.warning(f"Album {album['id']} has no images")
+        print(f"Returning {len(albums)} albums")
+        return {"albums": albums}
+    except Exception as e:
+        print(f"Error fetching all albums: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/recent-albums")
+async def get_recent_albums_route(limit: int = 4):
+    try:
+        albums = await get_recent_albums(limit)
         return {"albums": json.loads(json.dumps(albums, default=str))}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
