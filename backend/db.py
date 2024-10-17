@@ -12,6 +12,8 @@ import boto3
 from botocore.client import BaseClient
 from botocore.config import Config
 from bson import ObjectId
+from qdrant_client import QdrantClient
+from qdrant_client.http import models
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -421,7 +423,7 @@ def upload_file_to_s3(
 
 async def delete_multiple_photos(image_ids: List[str]) -> Dict[str, Any]:
     """
-    Delete multiple photos from the database and S3.
+    Delete multiple photos from the database, S3, and Qdrant.
 
     :param image_ids: List of photo IDs to delete
     :return: Dictionary with successful and failed deletions
@@ -429,7 +431,8 @@ async def delete_multiple_photos(image_ids: List[str]) -> Dict[str, Any]:
     results = {"successful": [], "failed": []}
     images_collection = get_collection("images")
     albums_collection = get_collection("albums")
-    print(f"Attempting to delete photos: {image_ids}")
+    qdrant_client = QdrantClient("localhost", port=6333)
+    logger.info(f"Attempting to delete photos: {image_ids}")
 
     for image_id in image_ids:
         try:
@@ -461,6 +464,19 @@ async def delete_multiple_photos(image_ids: List[str]) -> Dict[str, Any]:
                 {"images.id": image_id},
                 {"$pull": {"images": {"id": image_id}}}
             )
+
+            # Delete from Qdrant
+            try:
+                qdrant_client.delete(
+                    collection_name="family_book_images",
+                    points_selector=models.PointIdsList(
+                        points=[image_id]
+                    )
+                )
+                logger.info(f"Successfully deleted image {image_id} from Qdrant")
+            except Exception as e:
+                logger.error(f"Error deleting image from Qdrant: {str(e)}")
+                # We don't add to failed here as the main storage (MongoDB and S3) deletions were successful
 
             results["successful"].append(image_id)
         except Exception as e:
@@ -504,7 +520,7 @@ async def delete_multiple_albums(album_ids: List[str]) -> Dict[str, Any]:
 
 
 # def clear_qdrant_collection(collection_name: str):
-#     client = QdrantClient("localhost", port=6333)
+#     client = qdrant_client.QdrantClient("localhost", port=6333)
 #     client.delete_collection(collection_name)
 #     print(f"Qdrant collection '{collection_name}' has been deleted")
 
