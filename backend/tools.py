@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import Any, List
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -8,7 +7,6 @@ from qdrant_client.http.models import Distance, VectorParams, Batch
 from langchain.tools import BaseTool
 import torch
 from transformers import CLIPProcessor, CLIPModel
-from qdrant_client.http import models
 
 
 logger = logging.getLogger(__name__)
