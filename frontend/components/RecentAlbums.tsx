@@ -1,7 +1,6 @@
 "use client"
 
 import { BookOpen, Image as ImageIcon, Trash2} from 'lucide-react';
-import { Card, CardContent} from "@/components/ui/card"
 import { AlbumListProps } from '@/typing';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -20,7 +19,6 @@ export default function RecentAlbums({ albums,  onAlbumsDeleted }: AlbumListProp
   const handleAlbumClick = (albumId: string) => {
     router.push(`/albums/${albumId}`);
   };
-
 
   const handleSelectAlbum = (albumId: string, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -65,9 +63,11 @@ export default function RecentAlbums({ albums,  onAlbumsDeleted }: AlbumListProp
               {isDeleting ? 'Deleting...' : `Delete Selected (${selectedAlbums.length})`}
             </Button>
           )}
+            {albums.length > 0 && (
           <Link href="/albums" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300">
             View All Albums
           </Link>
+        )}
         </div>
       </div>
       {albums.length === 0 ? (
@@ -100,7 +100,8 @@ export default function RecentAlbums({ albums,  onAlbumsDeleted }: AlbumListProp
               <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                 <h3 className="text-lg font-semibold truncate">{album.album_name}</h3>
                 <p className="text-sm"> {album.images.length} {album.images.length === 1 ? 'photo' : 'photos'} </p>
-              </div>
+                <p className="text-sm">  {new Date(album.createdAt).toLocaleDateString()} </p>
+             </div>
               <div className="absolute top-2 left-2 z-10" onClick={(e) => handleSelectAlbum(album.id, e)}>
                 <Checkbox
                   checked={selectedAlbums.includes(album.id)}

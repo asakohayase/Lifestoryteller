@@ -23,12 +23,23 @@ const FamilyPhotoAlbum = () => {
   const getLatestAlbums = () => {
     getRecentAlbums(4)
       .then(fetchedAlbums => {
-        const formattedAlbums = fetchedAlbums.map(album => ({
+        const formattedAlbums: Album[] = fetchedAlbums.map(album => ({
           id: album.id,
           album_name: album.album_name,
           description: album.description ?? '',
-          images: album.images.map(img => ({ id: img.id, url: img.url })),
-          cover_image: album.cover_image ? { id: album.cover_image.id, url: album.cover_image.url } : undefined
+          images: album.images.map(img => ({ 
+            id: img.id, 
+            url: img.url,
+            createdAt: img.createdAt 
+          })),
+          cover_image: album.cover_image 
+            ? { 
+                id: album.cover_image.id, 
+                url: album.cover_image.url,
+                createdAt: album.cover_image.createdAt 
+              } 
+            : undefined,
+          createdAt: album.createdAt
         }));
         setAlbums(formattedAlbums);
       })
@@ -67,12 +78,8 @@ const FamilyPhotoAlbum = () => {
   };
 
   return (
-    <div className="w-full py-8 px-12 lg:px-24 bg-white min-h-screen font-poppins">
-      <div className="bg-white rounded-lg mb-8 p-4">
-        <h1 className="text-4xl font-extrabold text-gray-800 text-center tracking-tight">LifeStoryteller</h1>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+    <div className="w-full py-8 px-12 lg:px-24 bg-white min-h-screen">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         <UploadPhoto onUpload={handlePhotoUpload} isUploading={isUploading} />
         <GenerateAlbum onSubmit={handleAlbumSubmit} isGenerating={isGenerating} />
       </div>

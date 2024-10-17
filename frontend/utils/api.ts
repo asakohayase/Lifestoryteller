@@ -32,7 +32,7 @@ export async function generateAlbum(theme: string): Promise<Album> {
   const data = await response.json();
   
   // Ensure the response contains the expected fields
-  if (!data.id || !data.album_name || !data.description || !Array.isArray(data.images)) {
+  if (!data.id || !data.album_name || !data.description || !Array.isArray(data.images) || !data.createdAt) {
     throw new Error('Invalid album data format');
   }
 
@@ -41,7 +41,8 @@ export async function generateAlbum(theme: string): Promise<Album> {
     album_name: data.album_name,
     description: data.description,
     images: data.images,
-    cover_image: data.cover_image
+    cover_image: data.cover_image,
+    createdAt: data.createdAt
   };
 }
 

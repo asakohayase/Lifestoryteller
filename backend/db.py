@@ -154,7 +154,7 @@ async def save_image(image_id: str, file_path: str, metadata: Dict[str, Any]) ->
 
 
 async def save_album(
-    album_name: str, description: str, images: List[Dict[str, str]]
+    album_name: str, description: str, images: List[Dict[str, str]], created_at
 ) -> str:
     albums_collection = get_collection("albums")
     result = await albums_collection.insert_one(
@@ -163,7 +163,7 @@ async def save_album(
             "description": description,
             "images": images,
             "cover_image": images[0] if images else None,
-            "created_at": datetime.now(timezone.utc),
+           "created_at": created_at,
         }
     )
     return str(result.inserted_id)
@@ -193,9 +193,11 @@ async def generate_album_with_presigned_urls(
 
     if not images:
         raise ValueError("No valid images found for the album")
+    
+    created_at = datetime.now(timezone.utc)
 
     album_id = await save_album(
-        album_data["album_name"], album_data["description"], images
+        album_data["album_name"], album_data["description"], images,  created_at
     )
 
     result = {
@@ -204,8 +206,8 @@ async def generate_album_with_presigned_urls(
         "description": album_data["description"],
         "images": images,
         "cover_image": images[0] if images else None,
+        "createdAt": created_at,
     }
-
     return result
 
 async def get_albums() -> List[Dict[str, Any]]:
@@ -328,7 +330,7 @@ async def get_recent_albums(limit: int = 4) -> List[Dict[str, Any]]:
                 "images": [],
                 "cover_image": None,
                 "createdAt": (
-                    album["created_at"].isoformat() if "created_at" in album else None
+                   album["created_at"].isoformat() if "created_at" in album else None
                 ),
             }
 
