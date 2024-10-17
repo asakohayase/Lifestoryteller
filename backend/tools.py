@@ -1,4 +1,3 @@
-import logging
 from typing import Any, List
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -8,8 +7,10 @@ from langchain.tools import BaseTool
 import torch
 from transformers import CLIPProcessor, CLIPModel
 
+from utils.log_config import setup_logger
 
-logger = logging.getLogger(__name__)
+
+logger = setup_logger(__name__)
 
 # Qdrant setup
 qdrant_client = QdrantClient("localhost", port=6333)
