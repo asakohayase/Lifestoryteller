@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List
+from typing import Any, Dict, List
 import uuid
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
@@ -26,6 +26,7 @@ from crewai.crews.crew_output import CrewOutput
 
 from middleware import add_middleware
 from contextlib import asynccontextmanager
+from qdrant_client.http.models import ScrollRequest
 
 qdrant_client = QdrantClient("localhost", port=6333)
 
@@ -204,21 +205,21 @@ async def get_album(album_id: str):
         raise HTTPException(status_code=500, detail=str(e))
     
 
-# @app.delete("/photos/{image_id}")
-# async def delete_photo_route(image_id: str):
-#     result = await delete_multiple_photos([image_id])
-#     if result["successful"]:
-#         return {"message": f"Photo {image_id} deleted successfully"}
-#     else:
-#         raise HTTPException(status_code=404, detail="Photo not found or could not be deleted")
+@app.delete("/photos/{image_id}")
+async def delete_photo_route(image_id: str):
+    result = await delete_multiple_photos([image_id])
+    if result["successful"]:
+        return {"message": f"Photo {image_id} deleted successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="Photo not found or could not be deleted")
 
-# @app.delete("/albums/{album_id}")
-# async def delete_album_route(album_id: str):
-#     result = await delete_multiple_albums([album_id])
-#     if result["successful"]:
-#         return {"message": f"Album {album_id} deleted successfully"}
-#     else:
-#         raise HTTPException(status_code=404, detail="Album not found or could not be deleted")
+@app.delete("/albums/{album_id}")
+async def delete_album_route(album_id: str):
+    result = await delete_multiple_albums([album_id])
+    if result["successful"]:
+        return {"message": f"Album {album_id} deleted successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="Album not found or could not be deleted")
 
 @app.post("/photos/bulk-delete")
 async def bulk_delete_photos(request: BulkDeletePhotosRequest):
@@ -245,13 +246,58 @@ async def bulk_delete_albums(request: BulkDeleteAlbumsRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
+# Clear all data from Qdrant, MongoDB, and S3
 # @app.post("/admin/clear-all-data")
 # async def clear_all_data():
 #     await clear_all_images()
 #     clear_qdrant_collection("family_book_images")
 #     return {"message": "All data has been cleared"}
+
+# Retreavive data stored in Qdrant
+# @app.get("/qdrant-data")
+# async def get_all_qdrant_data() -> List[Dict[str, Any]]:
+#     try:
+#         qdrant_client = QdrantClient("localhost", port=6333)
+        
+#         all_data = []
+#         offset = None
+#         limit = 100  # Number of records to fetch per request
+        
+#         while True:
+#             results = qdrant_client.scroll(
+#                 collection_name="family_book_images",
+#                 limit=limit,
+#                 offset=offset,
+#                 with_payload=True,
+#                 with_vectors=True  # Explicitly request vectors
+#             )
+            
+#             if not results or not results[0]:
+#                 break
+            
+#             points, next_page_offset = results
+            
+#             for point in points:
+#                 vector_info = "Not available"
+#                 if point.vector:
+#                     vector_info = f"First 5 elements: {point.vector[:5]}, Length: {len(point.vector)}"
+#                 else:
+#                     vector_info = "Vector is null"
+                
+#                 all_data.append({
+#                     "id": point.id,
+#                     "payload": point.payload,
+#                     "vector_info": vector_info
+#                 })
+            
+#             if next_page_offset is None:
+#                 break
+            
+#             offset = next_page_offset
+
+#         return all_data if all_data else {"message": "No data found in the 'family_book_images' collection."}
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error retrieving data from Qdrant: {str(e)}")
 
 
 if __name__ == "__main__":
