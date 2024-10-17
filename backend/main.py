@@ -253,7 +253,7 @@ async def bulk_delete_albums(request: BulkDeleteAlbumsRequest):
 #     clear_qdrant_collection("family_book_images")
 #     return {"message": "All data has been cleared"}
 
-# Retreavive data stored in Qdrant
+# Retrieve data stored in Qdrant
 # @app.get("/qdrant-data")
 # async def get_all_qdrant_data() -> List[Dict[str, Any]]:
 #     try:
