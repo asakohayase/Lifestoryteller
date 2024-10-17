@@ -1,7 +1,7 @@
 export interface Photo {
     id: string;
     url: string;
-    createdAt?: string;
+    createdAt: string;
   }
 
   export interface UploadPhotoProps {
@@ -25,7 +25,7 @@ export interface Photo {
     description?: string;
     cover_image?: Photo;
     images: Photo[];
-    createdAt?: string;
+    createdAt: string;
   }
   
 export interface AlbumListProps {

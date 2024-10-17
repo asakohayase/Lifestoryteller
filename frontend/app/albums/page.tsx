@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getAllAlbums, deleteMultipleAlbums } from '@/utils/api';
-import { ArrowLeft, ImageIcon, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, ImageIcon, Trash2 } from 'lucide-react';
 import { Album } from '@/typing';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -66,7 +66,7 @@ export default function AllAlbums() {
 
   if (error) {
     return (
-      <div className="w-full mx-auto p-6 bg-white min-h-screen font-poppins">
+      <div className="w-full mx-auto px-12 py-8 lg:px-24 bg-white min-h-screen">
         <h1 className="text-4xl font-bold mb-4 text-red-500">Error</h1>
         <p className="text-lg mb-4 text-black">{error}</p>
         <Link href="/" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300">
@@ -78,25 +78,34 @@ export default function AllAlbums() {
   }
 
   return (
-    <div className="w-full mx-auto p-12 lg:p-24 bg-white min-h-screen font-poppins">
-      <div className="flex justify-between items-center mb-6">
-        <Link href="/" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300">
+    <div className="w-full mx-auto px-12 py-8 lg:px-24 bg-white min-h-screen">
+      <div className="flex flex-col mb-6">
+        <Link href="/" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300 mb-4">
           <ArrowLeft className="mr-2 h-5 w-5" />
           Back to Home
         </Link>
-        {selectedAlbums.length > 0 && (
-          <Button
-            variant="destructive"
-            onClick={handleDeleteSelectedAlbums}
-            disabled={isDeleting}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            {isDeleting ? 'Deleting...' : `Delete Selected (${selectedAlbums.length})`}
-          </Button>
-        )}
+        <div className="flex justify-between items-center">
+          <h1 className="text-4xl font-bold text-blue1">All Albums</h1>
+          {selectedAlbums.length > 0 && (
+            <Button
+              variant="destructive"
+              onClick={handleDeleteSelectedAlbums}
+              disabled={isDeleting}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {isDeleting ? 'Deleting...' : `Delete Selected (${selectedAlbums.length})`}
+            </Button>
+          )}
+        </div>
       </div>
-      <h1 className="text-4xl font-bold mb-4 text-blue1">All Albums</h1>
-      
+      {albums.length === 0 ? (
+        <div className="flex-grow flex justify-center items-center">
+          <div className="text-center mt-40">
+            <BookOpen className="mx-auto h-24 w-24 text-gray-400 mb-4" />
+            <p className="text-xl font-semibold text-gray-600">Time to capture some memories!</p>
+          </div>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {albums.map((album) => (
           <Link key={album.id} href={`/albums/${album.id}`}>
@@ -119,7 +128,6 @@ export default function AllAlbums() {
                 <Checkbox
                   checked={selectedAlbums.includes(album.id)}
                   onCheckedChange={() => {}}
-                  className="bg-white bg-opacity-70 hover:bg-opacity-100 transition-opacity duration-200"
                 />
               </div>
               <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
@@ -130,6 +138,7 @@ export default function AllAlbums() {
           </Link>
         ))}
       </div>
+      )}
     </div>
   );
 }
