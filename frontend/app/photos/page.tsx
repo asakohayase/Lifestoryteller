@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getAllPhotos, deleteMultiplePhotos } from '@/utils/api';
-import { ArrowLeft, ImageIcon, Trash2 } from 'lucide-react';
+import { ArrowLeft, ImageIcon, Trash2, Camera } from 'lucide-react';
 import { Photo } from '@/typing';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -76,8 +76,8 @@ export default function AllPhotos() {
   }
 
   return (
-    <div className="w-full mx-auto px-12 py-8 lg:px-24 bg-white min-h-screen">
-       <div className="flex flex-col mb-6">
+    <div className="w-full mx-auto px-12 py-8 lg:px-24 bg-white min-h-screen flex flex-col">
+      <div className="flex flex-col mb-6">
         <Link href="/" className="inline-flex items-center text-blue2 hover:text-blue1 font-semibold transition duration-300 mb-4">
           <ArrowLeft className="mr-2 h-5 w-5" />
           Back to Home
@@ -97,31 +97,40 @@ export default function AllPhotos() {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {photos.map((photo) => (
-          <div key={photo.id} className="aspect-square relative rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
-            {photo.url ? (
-              <Image 
-                src={photo.url}
-                alt={`Photo ${photo.id}`}
-                fill
-                sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                style={{ objectFit: 'cover' }}
-              />
-            ) : (
-              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                <ImageIcon className="h-1/2 w-1/2 text-gray-400" />
-              </div>
-            )}
-            <div className="absolute top-2 left-2 z-10">
-              <Checkbox
-                checked={selectedPhotos.includes(photo.id)}
-                onCheckedChange={() => handleSelectPhoto(photo.id)}
-              />
-            </div>
+      {photos.length === 0 ? (
+        <div className="flex-grow flex justify-center">
+          <div className="text-center mt-40">
+            <Camera className="mx-auto h-24 w-24 text-gray-400 mb-4" />
+            <p className="text-xl font-semibold text-gray-600">Time to capture some memories!</p>
           </div>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {photos.map((photo) => (
+            <div key={photo.id} className="aspect-square relative rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
+              {photo.url ? (
+                <Image 
+                  src={photo.url}
+                  alt={`Photo ${photo.id}`}
+                  fill
+                  sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  style={{ objectFit: 'cover' }}
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                  <ImageIcon className="h-1/2 w-1/2 text-gray-400" />
+                </div>
+              )}
+              <div className="absolute top-2 left-2 z-10">
+                <Checkbox
+                  checked={selectedPhotos.includes(photo.id)}
+                  onCheckedChange={() => handleSelectPhoto(photo.id)}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

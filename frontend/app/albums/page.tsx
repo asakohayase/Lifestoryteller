@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getAllAlbums, deleteMultipleAlbums } from '@/utils/api';
-import { ArrowLeft, ImageIcon, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, ImageIcon, Trash2 } from 'lucide-react';
 import { Album } from '@/typing';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -85,19 +85,27 @@ export default function AllAlbums() {
           Back to Home
         </Link>
         <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-bold text-blue1">All Albums</h1>
-        {selectedAlbums.length > 0 && (
-          <Button
-            variant="destructive"
-            onClick={handleDeleteSelectedAlbums}
-            disabled={isDeleting}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            {isDeleting ? 'Deleting...' : `Delete Selected (${selectedAlbums.length})`}
-          </Button>
-        )}
+          <h1 className="text-4xl font-bold text-blue1">All Albums</h1>
+          {selectedAlbums.length > 0 && (
+            <Button
+              variant="destructive"
+              onClick={handleDeleteSelectedAlbums}
+              disabled={isDeleting}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {isDeleting ? 'Deleting...' : `Delete Selected (${selectedAlbums.length})`}
+            </Button>
+          )}
         </div>
       </div>
+      {albums.length === 0 ? (
+        <div className="flex-grow flex justify-center items-center">
+          <div className="text-center mt-40">
+            <BookOpen className="mx-auto h-24 w-24 text-gray-400 mb-4" />
+            <p className="text-xl font-semibold text-gray-600">Time to capture some memories!</p>
+          </div>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {albums.map((album) => (
           <Link key={album.id} href={`/albums/${album.id}`}>
@@ -130,6 +138,7 @@ export default function AllAlbums() {
           </Link>
         ))}
       </div>
+      )}
     </div>
   );
 }
