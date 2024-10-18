@@ -1,4 +1,3 @@
-import logging
 from typing import Any, List
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -8,8 +7,10 @@ from langchain.tools import BaseTool
 import torch
 from transformers import CLIPProcessor, CLIPModel
 
+from utils.log_config import setup_logger
 
-logger = logging.getLogger(__name__)
+
+logger = setup_logger(__name__)
 
 # Qdrant setup
 qdrant_client = QdrantClient("localhost", port=6333)
@@ -144,10 +145,24 @@ class ImageRetrievalTool(BaseTool):
             search_results = self.qdrant_client.search(
                 collection_name="family_book_images",
                 query_vector=text_embedding[0],
-                limit=10,
+                limit=20,  
+                score_threshold=0.2  
             )
 
-            return [result.payload["image_id"] for result in search_results]
+            # Log the scores for analysis
+            for result in search_results:
+                logger.info(f"Image ID: {result.payload['image_id']}, Score: {result.score}")
+
+            # Filter results based on the score
+            filtered_results = [
+                result.payload["image_id"]
+                for result in search_results
+                if result.score > 0.2  
+            ]
+
+            return filtered_results[:10]  # Return top 10 filtered results
+
+
         except Exception as e:
             logger.error(f"Error retrieving images: {str(e)}", exc_info=True)
             return []

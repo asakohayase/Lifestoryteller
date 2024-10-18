@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import logging
 from typing import Any, Dict, List, Optional, TypedDict
 from urllib.parse import unquote
 from motor.motor_asyncio import (
@@ -15,11 +14,10 @@ from bson import ObjectId
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+from utils.log_config import setup_logger
 
+
+logger = setup_logger(__name__)
 
 def object_id_to_str(obj):
     if isinstance(obj, ObjectId):
@@ -100,13 +98,13 @@ async def close_mongo_connection():
         try:
             client.close()
         except Exception as e:
-            print(f"Error closing MongoDB connection: {e}")
+            logger.error(f"Error closing MongoDB connection: {e}")
         finally:
             MongoDB.client = None
             MongoDB.db = None
             MongoDB.collections = None
     else:
-        print("No active MongoDB connection to close")
+        logger.error("No active MongoDB connection to close")
 
 
 def get_db() -> AsyncIOMotorDatabase:
@@ -178,7 +176,7 @@ async def generate_album_with_presigned_urls(
     for image_id in album_data.get("image_ids", []):
         image_doc = await get_image_metadata(image_id)
         if not image_doc:
-            print(f"No metadata found for image ID: {image_id}")
+            logger.error(f"No metadata found for image ID: {image_id}")
             continue
         if (
             image_doc
@@ -191,7 +189,7 @@ async def generate_album_with_presigned_urls(
                 )
                 images.append({"id": str(image_id), "url": presigned_url})
             except Exception as e:
-                print(f"Error generating presigned URL for image {image_id}: {str(e)}")
+                logger.error(f"Error generating presigned URL for image {image_id}: {str(e)}")
 
     if not images:
         raise ValueError("No valid images found for the album")
@@ -243,7 +241,7 @@ async def get_albums() -> List[Dict[str, Any]]:
             formatted_albums.append(formatted_album)
         return formatted_albums
     except Exception as e:
-        print(f"Error in get_albums: {str(e)}")
+        logger.error(f"Error in get_albums: {str(e)}")
         raise
 
 
@@ -291,10 +289,9 @@ async def get_all_albums(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]
                     "url": generate_presigned_url(unquote(album["images"][0]["url"].split("/")[-1].split("?")[0]))
                 }
             formatted_albums.append(formatted_album)
-        print(f"Formatted {len(formatted_albums)} albums")
         return formatted_albums
     except Exception as e:
-        print(f"Error in get_all_albums: {str(e)}")
+        logger.error(f"Error in get_all_albums: {str(e)}")
         raise
 
 async def get_recent_photos(limit: int = 4) -> List[Dict[str, Any]]:
@@ -313,7 +310,7 @@ async def get_recent_photos(limit: int = 4) -> List[Dict[str, Any]]:
             for photo in photos
         ]
     except Exception as e:
-        print(f"Error in get_recent_photos: {str(e)}")
+        logger.error(f"Error in get_recent_photos: {str(e)}")
         raise
 
 
@@ -348,7 +345,7 @@ async def get_recent_albums(limit: int = 4) -> List[Dict[str, Any]]:
             formatted_albums.append(formatted_album)
         return formatted_albums
     except Exception as e:
-        print(f"Error in get_albums: {str(e)}")
+        logger.error(f"Error in get_albums: {str(e)}")
         raise
 
 
@@ -365,7 +362,7 @@ async def get_album_by_id(album_id: str):
         album = await albums_collection.find_one({"_id": object_id})
 
         if album is None:
-            print(f"No album found with ID: {album_id}")
+            logger.error(f"No album found with ID: {album_id}")
             return None
 
         formatted_album = {
@@ -394,7 +391,7 @@ async def get_album_by_id(album_id: str):
                     {"id": image["id"], "url": presigned_url}
                 )
             except Exception as e:
-                print(
+                logger.error(
                     f"Error generating presigned URL for image {image['id']}: {str(e)}"
                 )
 
@@ -404,7 +401,7 @@ async def get_album_by_id(album_id: str):
         return formatted_album
 
     except Exception as e:
-        print(f"Error fetching album by ID {album_id}: {str(e)}")
+        logger.error(f"Error fetching album by ID {album_id}: {str(e)}")
         raise
 
 
@@ -417,7 +414,7 @@ def upload_file_to_s3(
         S3Config.client.upload_file(file_path, S3Config.get_bucket_name(), object_name)
         return f"https://{S3Config.get_bucket_name()}.s3.amazonaws.com/{object_name}"
     except Exception as e:
-        print(f"Error uploading to S3: {e}")
+        logger.error(f"Error uploading to S3: {e}")
         return None
 
 
@@ -497,7 +494,6 @@ async def delete_multiple_albums(album_ids: List[str]) -> Dict[str, Any]:
 
     for album_id in album_ids:
         try:
-            print(f"Attempting to delete album with ID: {album_id}, Type: {type(album_id)}")
             object_id = ObjectId(album_id)
             delete_result = await albums_collection.delete_one({"_id": object_id})
             if delete_result.deleted_count == 0:
@@ -516,16 +512,16 @@ async def delete_multiple_albums(album_ids: List[str]) -> Dict[str, Any]:
 #     db = get_db()
 #     await db.images.delete_many({})
 #     await db.albums.delete_many({})
-#     print("All images and albums have been deleted from MongoDB")
+#     logger.error("All images and albums have been deleted from MongoDB")
 
 
 # def clear_qdrant_collection(collection_name: str):
 #     client = qdrant_client.QdrantClient("localhost", port=6333)
 #     client.delete_collection(collection_name)
-#     print(f"Qdrant collection '{collection_name}' has been deleted")
+#     logger.error(f"Qdrant collection '{collection_name}' has been deleted")
 
 
 # async def clear_all_data(qdrant_collection_name: str):
 #     await clear_all_images()
 #     clear_qdrant_collection(qdrant_collection_name)
-#     print("All data has been cleared from both MongoDB and Qdrant")
+#     logger.error("All data has been cleared from both MongoDB and Qdrant")
