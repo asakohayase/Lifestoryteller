@@ -1,10 +1,11 @@
 import json
-import logging
+
 from typing import Any, Dict, List
 import uuid
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
+from utils.log_config import setup_logger
 from tools import ensure_qdrant_collection
 from crew import FamilyBookCrew
 from qdrant_client import QdrantClient
@@ -28,12 +29,10 @@ from middleware import add_middleware
 from contextlib import asynccontextmanager
 from qdrant_client.http.models import ScrollRequest
 
+
 qdrant_client = QdrantClient("localhost", port=6333)
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 
 def parse_string_to_dict(s: str) -> dict:
@@ -194,14 +193,14 @@ async def get_recent_albums_route(limit: int = 4):
 
 @app.get("/albums/{album_id}")
 async def get_album(album_id: str):
-    logging.debug(f"Received request for album ID: {album_id}")
+    logger.debug(f"Received request for album ID: {album_id}")
     try:
         album = await get_album_by_id(album_id)
         if album is None:
             raise HTTPException(status_code=404, detail="Album not found")
         return album
     except Exception as e:
-        logging.error(f"Error processing request for album {album_id}: {str(e)}")
+        logger.error(f"Error processing request for album {album_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     
 
@@ -253,7 +252,7 @@ async def bulk_delete_albums(request: BulkDeleteAlbumsRequest):
 #     clear_qdrant_collection("family_book_images")
 #     return {"message": "All data has been cleared"}
 
-# Retreavive data stored in Qdrant
+# Retrieve data stored in Qdrant
 # @app.get("/qdrant-data")
 # async def get_all_qdrant_data() -> List[Dict[str, Any]]:
 #     try:
