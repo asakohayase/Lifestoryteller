@@ -1,9 +1,8 @@
 import json
 
-import os
 from typing import Any, Dict, List, Optional
 import uuid
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
+from fastapi import BackgroundTasks, FastAPI, HTTPException,  UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -14,9 +13,11 @@ from qdrant_client import QdrantClient
 from db import (
     connect_to_mongo,
     close_mongo_connection,
+    create_video,
     delete_multiple_albums,
     delete_multiple_photos,
     generate_album_with_presigned_urls,
+    generate_presigned_url,
     get_album_by_id,
     get_all_albums,
     get_all_photos,
@@ -259,6 +260,37 @@ async def get_album(album_id: str):
         logger.error(f"Error processing request for album {album_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     
+@app.post("/generate-video/{album_id}")
+async def generate_video(album_id: str, background_tasks: BackgroundTasks):
+    album = await get_album_by_id(album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="Album not found")
+    
+    background_tasks.add_task(create_video, album)
+    return {"message": "Video generation started", "album_id": album_id}
+    
+@app.get("/download-video/{album_id}")
+async def get_video_download_url(album_id: str):
+    try:
+        album = await get_album_by_id(album_id)
+        if not album or not album.get("video_url"):
+            raise HTTPException(status_code=404, detail="Video not found")
+
+        # Extract the S3 key from the stored URL
+        video_filename = album["video_url"].split("/")[-1].split("?")[0]
+        
+        # Prepend the folder name (generated-video) to the video filename
+        s3_key = f"generated-video/{video_filename}"
+        
+        # Generate a new presigned URL for downloading
+        download_url = generate_presigned_url(s3_key, expiration=3600, as_attachment=True)
+        
+        return {"download_url": download_url}
+    except Exception as e:
+        logger.error(f"Error generating download URL for album {album_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+   
 
 @app.delete("/photos/{image_id}")
 async def delete_photo_route(image_id: str):

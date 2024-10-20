@@ -116,7 +116,8 @@ export async function getAlbumById(id: string): Promise<Album> {
     description: data.description,
     images: data.images,
     cover_image: data.cover_image,
-    createdAt: data.createdAt
+    createdAt: data.createdAt,
+    video_url: data.video_url
   };
 }
 
@@ -158,5 +159,29 @@ export async function deleteMultipleAlbums(albumIds: string[]): Promise<void> {
     throw new Error(`Failed to delete albums: ${response.status} ${errorText}`);
   }
 }
+
+export async function generateVideo(albumId: string): Promise<void> {
+  const response = await fetch(`/api/generate-video/${albumId}`, {
+    method: 'POST',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to start video generation');
+  }
+
+  const data = await response.json();
+  console.log('Video generation started:', data);
+}
+
+export async function getVideoDownloadUrl(albumId: string): Promise<string> {
+  const response = await fetch(`/api/download-video/${albumId}`);
+  if (!response.ok) {
+    throw new Error('Failed to get video download URL');
+  }
+  const data = await response.json();
+  return data.download_url;
+}
+
+
 
 
