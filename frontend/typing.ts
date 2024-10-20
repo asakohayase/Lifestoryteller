@@ -26,6 +26,7 @@ export interface Photo {
     cover_image?: Photo;
     images: Photo[];
     createdAt: string;
+    video_url?: string;
   }
   
 export interface AlbumListProps {

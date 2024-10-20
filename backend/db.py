@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
+import subprocess
+import tempfile
 from typing import Any, Dict, List, Optional, TypedDict
 from urllib.parse import unquote
 from dotenv import load_dotenv
+
 from motor.motor_asyncio import (
     AsyncIOMotorClient,
     AsyncIOMotorDatabase,
@@ -14,6 +17,7 @@ from botocore.config import Config
 from bson import ObjectId
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
+import requests
 
 from utils.log_config import setup_logger
 
@@ -118,7 +122,7 @@ def get_collection(name: str) -> AsyncIOMotorCollection:
     return MongoDB.collections[name]
 
 
-def generate_presigned_url(s3_object_name: str, expiration: int = 3600) -> str:
+def generate_presigned_url(s3_object_name: str, expiration: int = 3600, as_attachment: bool = False) -> str:
     """
     Generate a presigned URL for an S3 object.
 
@@ -127,14 +131,18 @@ def generate_presigned_url(s3_object_name: str, expiration: int = 3600) -> str:
     :return: Presigned URL as string
     """
     try:
-        presigned_url = s3_client.generate_presigned_url(
-            "get_object",
-            Params={
+        params = {
                 "Bucket": S3Config.get_bucket_name(),
                 "Key": s3_object_name,
-            },
+            }
+        if as_attachment:
+            params["ResponseContentDisposition"] = f'attachment; filename="{os.path.basename(s3_object_name)}"'
+        
+        presigned_url = s3_client.generate_presigned_url(
+            "get_object",
+            Params=params,
             ExpiresIn=expiration,
-        )
+        )      
         return presigned_url
     except Exception as e:
         logger.error(
@@ -378,6 +386,7 @@ async def get_album_by_id(album_id: str):
             "createdAt": (
                 album["created_at"].isoformat() if "created_at" in album else None
             ),
+            "video_url": None,
         }
 
         for image in album.get("images", []):
@@ -394,6 +403,8 @@ async def get_album_by_id(album_id: str):
                 formatted_album["images"].append(
                     {"id": image["id"], "url": presigned_url}
                 )
+
+                logger.info(f"formatted_album:{formatted_album}")
             except Exception as e:
                 logger.error(
                     f"Error generating presigned URL for image {image['id']}: {str(e)}"
@@ -402,11 +413,83 @@ async def get_album_by_id(album_id: str):
         # Set the cover image to the first image if available
         if formatted_album["images"]:
             formatted_album["cover_image"] = formatted_album["images"][0]
+
+        # Handle video_url
+        if album.get("video_url"):
+            try:
+                video_filename = album["video_url"].split("/")[-1].split("?")[0]
+                video_filename = unquote(video_filename)
+                formatted_album["video_url"] = generate_presigned_url(video_filename)
+            except Exception as e:
+                logger.error(f"Error generating presigned URL for video: {str(e)}")
+
+        logger.info(f"formatted_album:{formatted_album}")
+
         return formatted_album
+    
 
     except Exception as e:
         logger.error(f"Error fetching album by ID {album_id}: {str(e)}")
         raise
+
+
+async def update_album_with_video(album_id: str, video_url: str):
+    albums_collection = get_collection("albums")
+    await albums_collection.update_one(
+        {"_id": ObjectId(album_id)},
+        {"$set": {"video_url": video_url}}
+    )
+
+def download_image(presigned_url: str, path: str):
+    try:
+        response = requests.get(presigned_url)  
+        response.raise_for_status()
+        with open(path, 'wb') as file:
+            file.write(response.content)
+    except requests.RequestException as e:  
+        logger.error(f"Error downloading image: {str(e)}")
+        raise
+
+async def create_video(album: dict):
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            image_files = []
+            for i, image in enumerate(album['images']):
+                image_path = os.path.join(temp_dir, f"image_{i}.jpg")
+                download_image(image['url'], image_path)
+                image_files.append(image_path)
+
+            file_list_path = os.path.join(temp_dir, "file_list.txt")
+            with open(file_list_path, "w") as file:
+                for image_file in image_files:
+                    file.write(f"file '{image_file}'\n")
+                    file.write("duration 3\n")
+
+            output_path = os.path.join(temp_dir, f"album_{album['id']}_video.mp4")
+            ffmpeg_command = [
+                "ffmpeg",
+                "-f", "concat",
+                "-safe", "0",
+                "-i", file_list_path,
+                "-vsync", "vfr",
+                "-pix_fmt", "yuv420p",
+                output_path
+            ]
+            subprocess.run(ffmpeg_command, check=True)
+
+            s3_key = f"generated-video/album_{album['id']}_video.mp4"
+            s3_url = upload_file_to_s3(output_path, s3_key)
+
+            if s3_url:
+                await update_album_with_video(album['id'], s3_url)
+                logger.info(f"Video generated and uploaded successfully for album {album['id']}")
+            else:
+                logger.error(f"Failed to upload video for album {album['id']}")
+
+    except Exception as e:
+        logger.error(f"Error generating video for album {album['id']}: {str(e)}")
+
+
 
 
 def upload_file_to_s3(
