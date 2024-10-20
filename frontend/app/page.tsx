@@ -69,7 +69,7 @@ const FamilyPhotoAlbum = () => {
     setIsGenerating(true);
     try {
       const newAlbum = await generateAlbum(input);
-      setAlbums(prevAlbums => [...prevAlbums, newAlbum]);
+      setAlbums(prevAlbums => [newAlbum,...prevAlbums]);
     } catch (error) {
       console.error('Error generating album:', error);
     } finally {
