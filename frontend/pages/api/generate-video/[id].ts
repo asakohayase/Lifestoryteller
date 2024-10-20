@@ -5,7 +5,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { id } = req.query;
 
     try {
-      const response = await fetch(`${process.env.BACKEND_URL}/generate-video/${id}`, {
+      const response = await fetch(`http://127.0.0.1:8000/generate-video/${id}`, {
         method: 'POST',
       });
 

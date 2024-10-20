@@ -419,7 +419,12 @@ async def get_album_by_id(album_id: str):
             try:
                 video_filename = album["video_url"].split("/")[-1].split("?")[0]
                 video_filename = unquote(video_filename)
-                formatted_album["video_url"] = generate_presigned_url(video_filename)
+                
+                # Prepend the folder name to the video filename
+                s3_video_key = f"generated-video/{video_filename}"
+                
+                # Generate presigned URL using the correct S3 object key
+                formatted_album["video_url"] = generate_presigned_url(s3_video_key)
             except Exception as e:
                 logger.error(f"Error generating presigned URL for video: {str(e)}")
 
