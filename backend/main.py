@@ -277,7 +277,10 @@ async def get_video_download_url(album_id: str):
             raise HTTPException(status_code=404, detail="Video not found")
 
         # Extract the S3 key from the stored URL
-        s3_key = album["video_url"].split("/")[-1].split("?")[0]
+        video_filename = album["video_url"].split("/")[-1].split("?")[0]
+        
+        # Prepend the folder name (generated-video) to the video filename
+        s3_key = f"generated-video/{video_filename}"
         
         # Generate a new presigned URL for downloading
         download_url = generate_presigned_url(s3_key, expiration=3600, as_attachment=True)
@@ -287,7 +290,7 @@ async def get_video_download_url(album_id: str):
         logger.error(f"Error generating download URL for album {album_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-    
+   
 
 @app.delete("/photos/{image_id}")
 async def delete_photo_route(image_id: str):
