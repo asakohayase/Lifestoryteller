@@ -15,24 +15,37 @@ export async function uploadPhoto(formData: FormData) {
 }
 
 
+export async function generateAlbum(input: FormData | { theme: string }): Promise<Album> {
+  console.log('Generating album');
 
-export async function generateAlbum(theme: string): Promise<Album> {
+  let formData: FormData;
+
+  if (input instanceof FormData) {
+    console.log('Sending image-based request');
+    formData = input;
+  } else {
+    console.log('Sending theme-based request');
+    formData = new FormData();
+    formData.append('theme', input.theme);
+  }
+
   const response = await fetch('/api/generate-album', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ theme }),
+    body: formData,
   });
 
+
   if (!response.ok) {
-    throw new Error('Failed to generate album');
+    const errorText = await response.text();
+    console.error(`Error response from server: ${response.status} ${errorText}`);
+    throw new Error(`Failed to generate album: ${response.status} ${errorText}`);
   }
 
   const data = await response.json();
   
   // Ensure the response contains the expected fields
   if (!data.id || !data.album_name || !data.description || !Array.isArray(data.images) || !data.createdAt) {
+    console.error('Invalid album data format:', data);
     throw new Error('Invalid album data format');
   }
 

@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { Album } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Album, Upload } from 'lucide-react';
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
@@ -7,14 +7,36 @@ import { GenerateAlbumProps } from '@/typing';
 
 export default function GenerateAlbum({ onSubmit, isGenerating }: GenerateAlbumProps) {
   const formRef = useRef<HTMLFormElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (formRef.current) {
       const formData = new FormData(formRef.current);
       const theme = formData.get('theme') as string;
-      await onSubmit(theme);
+      
+      if (!theme && !selectedFile) {
+        alert('Please enter a theme or upload an image.');
+        return;
+      }
+  
+      const requestFormData = new FormData();
+      if (selectedFile) {
+        requestFormData.append('image', selectedFile);
+      } else if (theme) {
+        requestFormData.append('theme', theme);
+      }
+  
+      await onSubmit(requestFormData);
+  
       formRef.current.reset();
+      setSelectedFile(null);
+    }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setSelectedFile(event.target.files[0]);
     }
   };
 
@@ -30,7 +52,14 @@ export default function GenerateAlbum({ onSubmit, isGenerating }: GenerateAlbumP
           <Input
             name="theme"
             type="text"
-            placeholder="Enter the Most Epic Theme Ever (Or Just Go With 'Vacation' Again)"
+            placeholder="Enter theme or upload an image"
+            className="bg-white text-black focus:ring-blue2 mb-2"
+          />
+          <Input
+            name="image"
+            type="file"
+            onChange={handleFileChange}
+            accept="image/*"
             className="bg-white text-black focus:ring-blue2"
           />
         </form>
@@ -48,7 +77,7 @@ export default function GenerateAlbum({ onSubmit, isGenerating }: GenerateAlbumP
             </div>
           ) : (
             <>
-              <Album className="mr-2 h-4 w-4" /> Generate
+              {selectedFile ? <Upload className="mr-2 h-4 w-4" /> : <Album className="mr-2 h-4 w-4" />} Generate
             </>
           )}
         </Button>

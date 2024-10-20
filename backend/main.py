@@ -1,8 +1,10 @@
 import json
 
-from typing import Any, Dict, List
+import os
+from typing import Any, Dict, List, Optional
 import uuid
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from utils.log_config import setup_logger
@@ -123,36 +125,76 @@ async def upload_image(file: UploadFile = File(...)):
 class AlbumRequest(BaseModel):
     theme: str
 
-
 @app.post("/generate-album")
-async def generate_album(request: AlbumRequest):
+async def generate_album(image: Optional[UploadFile] = File(None), theme: Optional[str] = Form(None)):
+    logger.info(f"Received request with image: {image is not None}, theme: {theme}")
+    
     try:
+        if not image and not theme:
+            logger.error("Neither image nor theme provided")
+            raise HTTPException(status_code=400, detail="Either image or theme must be provided")
+
+        uploaded_image_path = None
+        if image:
+            # Save the uploaded file
+            contents = await image.read()
+            file_path = f"/tmp/{image.filename}"
+            with open(file_path, "wb") as f:
+                f.write(contents)
+
+            # Generate a single UUID for S3
+            image_id = str(uuid.uuid4())
+
+            # Generate S3 object name and upload to S3
+            s3_object_name = f"generated-album/{image_id}-{image.filename}"
+            s3_url = upload_file_to_s3(file_path, s3_object_name)
+
+            if not s3_url:
+                logger.error("Failed to upload to S3")
+                raise HTTPException(status_code=500, detail="Failed to upload image to S3")
+
+            uploaded_image_path = s3_url
+            logger.info(f"Image uploaded to S3: {uploaded_image_path}")
+
         crew = FamilyBookCrew("album_job", qdrant_client)
-        crew.setup_crew(theme_input=request.theme)
+
+        if uploaded_image_path:
+            logger.info(f"Processing image-based album generation: {uploaded_image_path}")
+            crew.setup_crew(uploaded_image_path=uploaded_image_path)
+        else:
+            logger.info(f"Processing theme-based album generation: {theme}")
+            crew.setup_crew(theme_input=theme)
+        
         result = crew.kickoff()
+        logger.info(f"Crew result type: {type(result)}")
+        logger.info(f"Crew result: {result}")
 
         if isinstance(result, CrewOutput):
-            album_data = parse_string_to_dict(result.raw)
+            album_data = json.loads(result.raw)
+        elif isinstance(result, str):
+            album_data = json.loads(result)
         elif isinstance(result, dict):
             album_data = result
-        elif isinstance(result, str):
-            album_data = parse_string_to_dict(result)
         else:
             logger.error(f"Unexpected result type: {type(result)}")
-            raise ValueError("Unexpected result format from album generation")
-        if not isinstance(album_data, dict):
-            raise ValueError("Invalid album data format: not a dictionary")
+            raise ValueError(f"Unexpected result format from album generation: {result}")
 
+        logger.info(f"Processed album data: {album_data}")
+
+        # Validate album_data
         required_keys = ["album_name", "description", "image_ids"]
-        missing_keys = [key for key in required_keys if key not in album_data]
-        if missing_keys:
+        if not all(key in album_data for key in required_keys):
+            missing_keys = [key for key in required_keys if key not in album_data]
             raise ValueError(f"Invalid album data format: missing keys {missing_keys}")
 
         # Generate album with presigned URLs
         album_with_urls = await generate_album_with_presigned_urls(album_data)
 
-        return album_with_urls
+        logger.info(f"Final album_with_urls: {json.dumps(album_with_urls, default=str)}")
+
+        return JSONResponse(content=album_with_urls)
     except Exception as e:
+        logger.error(f"Error generating album: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/all-photos")
@@ -253,50 +295,50 @@ async def bulk_delete_albums(request: BulkDeleteAlbumsRequest):
 #     return {"message": "All data has been cleared"}
 
 # Retrieve data stored in Qdrant
-# @app.get("/qdrant-data")
-# async def get_all_qdrant_data() -> List[Dict[str, Any]]:
-#     try:
-#         qdrant_client = QdrantClient("localhost", port=6333)
+@app.get("/qdrant-data")
+async def get_all_qdrant_data() -> List[Dict[str, Any]]:
+    try:
+        qdrant_client = QdrantClient("localhost", port=6333)
         
-#         all_data = []
-#         offset = None
-#         limit = 100  # Number of records to fetch per request
+        all_data = []
+        offset = None
+        limit = 100  # Number of records to fetch per request
         
-#         while True:
-#             results = qdrant_client.scroll(
-#                 collection_name="family_book_images",
-#                 limit=limit,
-#                 offset=offset,
-#                 with_payload=True,
-#                 with_vectors=True  # Explicitly request vectors
-#             )
+        while True:
+            results = qdrant_client.scroll(
+                collection_name="family_book_images",
+                limit=limit,
+                offset=offset,
+                with_payload=True,
+                with_vectors=True  # Explicitly request vectors
+            )
             
-#             if not results or not results[0]:
-#                 break
+            if not results or not results[0]:
+                break
             
-#             points, next_page_offset = results
+            points, next_page_offset = results
             
-#             for point in points:
-#                 vector_info = "Not available"
-#                 if point.vector:
-#                     vector_info = f"First 5 elements: {point.vector[:5]}, Length: {len(point.vector)}"
-#                 else:
-#                     vector_info = "Vector is null"
+            for point in points:
+                vector_info = "Not available"
+                if point.vector:
+                    vector_info = f"First 5 elements: {point.vector[:5]}, Length: {len(point.vector)}"
+                else:
+                    vector_info = "Vector is null"
                 
-#                 all_data.append({
-#                     "id": point.id,
-#                     "payload": point.payload,
-#                     "vector_info": vector_info
-#                 })
+                all_data.append({
+                    "id": point.id,
+                    "payload": point.payload,
+                    "vector_info": vector_info
+                })
             
-#             if next_page_offset is None:
-#                 break
+            if next_page_offset is None:
+                break
             
-#             offset = next_page_offset
+            offset = next_page_offset
 
-#         return all_data if all_data else {"message": "No data found in the 'family_book_images' collection."}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error retrieving data from Qdrant: {str(e)}")
+        return all_data if all_data else {"message": "No data found in the 'family_book_images' collection."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving data from Qdrant: {str(e)}")
 
 
 if __name__ == "__main__":

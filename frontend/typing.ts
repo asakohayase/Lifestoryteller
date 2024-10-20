@@ -15,7 +15,7 @@ export interface Photo {
   }
 
   export interface GenerateAlbumProps {
-    onSubmit: (theme: string) => Promise<void>;
+    onSubmit: (data: FormData) => Promise<void>;
     isGenerating: boolean;
   }
 
