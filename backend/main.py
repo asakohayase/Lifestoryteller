@@ -126,9 +126,7 @@ class AlbumRequest(BaseModel):
     theme: str
 
 @app.post("/generate-album")
-async def generate_album(image: Optional[UploadFile] = File(None), theme: Optional[str] = Form(None)):
-    logger.info(f"Received request with image: {image is not None}, theme: {theme}")
-    
+async def generate_album(image: Optional[UploadFile] = File(None), theme: Optional[str] = Form(None)):  
     try:
         if not image and not theme:
             logger.error("Neither image nor theme provided")
@@ -170,16 +168,34 @@ async def generate_album(image: Optional[UploadFile] = File(None), theme: Option
         logger.info(f"Crew result: {result}")
 
         if isinstance(result, CrewOutput):
-            album_data = json.loads(result.raw)
+            try:
+                album_data = json.loads(result.raw)
+            except json.JSONDecodeError as json_error:
+                logger.error(f"JSON parsing error: {str(json_error)}")
+                logger.error(f"Raw result: {result.raw}")
+                # Attempt to clean and parse the JSON
+                cleaned_result = result.raw.replace("'", '"').strip()
+                try:
+                    album_data = json.loads(cleaned_result)
+                except json.JSONDecodeError:
+                    raise ValueError(f"Failed to parse crew result as JSON: {result.raw}")
         elif isinstance(result, str):
-            album_data = json.loads(result)
+            try:
+                album_data = json.loads(result)
+            except json.JSONDecodeError as json_error:
+                logger.error(f"JSON parsing error: {str(json_error)}")
+                logger.error(f"Raw result: {result}")
+                # Attempt to clean and parse the JSON
+                cleaned_result = result.replace("'", '"').strip()
+                try:
+                    album_data = json.loads(cleaned_result)
+                except json.JSONDecodeError:
+                    raise ValueError(f"Failed to parse crew result as JSON: {result}")
         elif isinstance(result, dict):
             album_data = result
         else:
             logger.error(f"Unexpected result type: {type(result)}")
             raise ValueError(f"Unexpected result format from album generation: {result}")
-
-        logger.info(f"Processed album data: {album_data}")
 
         # Validate album_data
         required_keys = ["album_name", "description", "image_ids"]
@@ -189,8 +205,6 @@ async def generate_album(image: Optional[UploadFile] = File(None), theme: Option
 
         # Generate album with presigned URLs
         album_with_urls = await generate_album_with_presigned_urls(album_data)
-
-        logger.info(f"Final album_with_urls: {json.dumps(album_with_urls, default=str)}")
 
         return JSONResponse(content=album_with_urls)
     except Exception as e:
