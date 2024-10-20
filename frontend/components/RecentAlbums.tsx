@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import Link from 'next/link';
+import { formatDate } from '@/lib/utils';
 
 export default function RecentAlbums({ albums,  onAlbumsDeleted }: AlbumListProps) {
   const [selectedAlbums, setSelectedAlbums] = useState<string[]>([]);
@@ -100,7 +101,7 @@ export default function RecentAlbums({ albums,  onAlbumsDeleted }: AlbumListProp
               <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                 <h3 className="text-lg font-semibold truncate">{album.album_name}</h3>
                 <p className="text-sm"> {album.images.length} {album.images.length === 1 ? 'photo' : 'photos'} </p>
-                <p className="text-sm">  {new Date(album.createdAt).toLocaleDateString()} </p>
+                <p className="text-sm"> {formatDate(album.createdAt)} </p>
              </div>
               <div className="absolute top-2 left-2 z-10" onClick={(e) => handleSelectAlbum(album.id, e)}>
                 <Checkbox

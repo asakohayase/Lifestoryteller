@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { getAlbumById } from '@/utils/api';
 import { ArrowLeft, Calendar, ImageIcon } from 'lucide-react';
 import { Album } from '@/typing';
+import { formatDate } from '@/lib/utils';
 
 
 export default function AlbumDetail({ params }: { params: { id: string } }) {
@@ -62,7 +63,7 @@ export default function AlbumDetail({ params }: { params: { id: string } }) {
       {album.createdAt && (
         <p className="text-sm mb-8 text-gray-500 flex items-center">
           <Calendar className="mr-2 h-4 w-4" />
-          Created on: {new Date(album.createdAt).toLocaleDateString()}
+          Created on: {formatDate(album.createdAt)} 
         </p>
       )}
       
