@@ -139,28 +139,26 @@ class ImageRetrievalTool(BaseTool):
                 inputs = self.processor(text=[text_query], return_tensors="pt", padding=True)
                 with torch.no_grad():
                     embedding = self.model.get_text_features(**inputs).numpy().tolist()
+                score_threshold = 0.2
             elif uploaded_image_path:
-                logger.info(f"Processing image from URL: {uploaded_image_path}")
-                
-                # Extract the S3 object name from the URL
-                s3_object_name = uploaded_image_path.split('com/')[-1]
-                
-                # Generate a pre-signed URL
-                presigned_url = generate_presigned_url(s3_object_name)
-                
-                response = requests.get(presigned_url)
-                response.raise_for_status()
-                image = Image.open(BytesIO(response.content))
-                inputs = self.processor(images=image, return_tensors="pt")
-                with torch.no_grad():
-                    embedding = self.model.get_image_features(**inputs).numpy().tolist()
+                    logger.info(f"Processing image from URL: {uploaded_image_path}")
+                    s3_object_name = uploaded_image_path.split('com/')[-1]
+                    presigned_url = generate_presigned_url(s3_object_name)
+                    response = requests.get(presigned_url)
+                    response.raise_for_status()
+                    image = Image.open(BytesIO(response.content))
+                    inputs = self.processor(images=image, return_tensors="pt")
+                    with torch.no_grad():
+                        embedding = self.model.get_image_features(**inputs).numpy().tolist()
+                    score_threshold = 0.6
             else:
                 raise ValueError("Either text_query or uploaded_image_path must be provided")
+
             search_results = self.qdrant_client.search(
                 collection_name="family_book_images",
                 query_vector=embedding[0],
                 limit=20,
-                score_threshold=0.2
+                score_threshold=score_threshold
             )
 
             for result in search_results:
@@ -169,7 +167,7 @@ class ImageRetrievalTool(BaseTool):
             filtered_results = [
                 result.payload["image_id"]
                 for result in search_results
-                if result.score > 0.2 
+                if result.score > score_threshold
             ]
 
             return filtered_results[:10]  # Return top 10 filtered results
