@@ -65,10 +65,10 @@ const FamilyPhotoAlbum = () => {
     }
   };
 
-  const handleAlbumSubmit = async (theme: string) => {
+  const handleAlbumSubmit = async (input: FormData | { theme: string }) => {
     setIsGenerating(true);
     try {
-      const newAlbum = await generateAlbum(theme);
+      const newAlbum = await generateAlbum(input);
       setAlbums(prevAlbums => [...prevAlbums, newAlbum]);
     } catch (error) {
       console.error('Error generating album:', error);

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, TypedDict
 from urllib.parse import unquote
+from dotenv import load_dotenv
 from motor.motor_asyncio import (
     AsyncIOMotorClient,
     AsyncIOMotorDatabase,
@@ -15,6 +16,8 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
 from utils.log_config import setup_logger
+
+load_dotenv() 
 
 
 logger = setup_logger(__name__)
@@ -206,8 +209,9 @@ async def generate_album_with_presigned_urls(
         "description": album_data["description"],
         "images": images,
         "cover_image": images[0] if images else None,
-        "createdAt": created_at,
+        "createdAt": created_at.isoformat(),
     }
+    
     return result
 
 async def get_albums() -> List[Dict[str, Any]]:
