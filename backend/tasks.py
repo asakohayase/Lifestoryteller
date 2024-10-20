@@ -37,31 +37,6 @@ class FamilyBookTasks:
             callback=self.append_event_callback,
         )
 
-    # def create_album_task(self, agent: Agent, theme_input: str):
-    #     return Task(
-    #         description=dedent(
-    #             f"""
-    #             Create an album based on the user's natural language input: "{theme_input}" or 
-    #             Use the ImageRetrievalTool to find similar images based on the theme.
-    #             Select a maximum of 10 relevant images for the album.
-    #             If fewer than 10 relevant images are found, do not attempt to fill the remaining spots.
-    #             """
-    #         ),
-    #         agent=agent,
-    #         expected_output=dedent(
-    #             """
-    #             {
-    #                 "album_name": "Generated album name (Maximum 7 words)",
-    #                 "description": "Brief description of the album (Maximum 50 words)",
-    #                 "image_ids": ["list of selected image IDs"],
-    #                 "theme": "Identified theme of the album"
-    #             }
-    #             """
-    #         ),
-    #         tools=[ImageRetrievalTool(self.qdrant_client)],
-    #         async_execution=False,
-    #         callback=self.append_event_callback,
-    #     )
     
     def create_album_task(self, agent: Agent, theme_input: str = None, uploaded_image_path: str = None):
         if theme_input:
