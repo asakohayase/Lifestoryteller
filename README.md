@@ -80,7 +80,7 @@ To get a local copy up and running follow these simple example steps.
    ```
    * backend
    ```js
-   OPENAI_API_KEY=sk-proj-WHJrxZEe41s97p05k3XhT3BlbkFJUYTD0NyRT3PDbSwCoyTa
+   OPENAI_API_KEY=
    MONGODB_URI=
    AWS_ACCESS_KEY_ID=
    AWS_SECRET_ACCESS_KEY=
