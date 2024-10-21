@@ -24,7 +24,7 @@
 
 <!-- ABOUT THE PROJECT -->
 ## Features
-**・Photo Upload** : xxx
+**・Photo Upload** : Select or drag & drop a photo from your folder to upload.
 
 <img width="609" alt="Screenshot 2024-10-20 at 11 37 25 PM" src="https://github.com/user-attachments/assets/da689a93-0e81-4b60-9aef-2be53f98a5b8">
 <br />
@@ -98,24 +98,24 @@ To get a local copy up and running follow these simple example steps.
 5.  Set the path to the virtual environment to Python Interpreter
 6.  To run the app
    
-   Activate Qdrant
+   * Activate Qdrant
    ```sh
    docker volume create qdrant_data
    docker run -p 6333:6333 -v qdrant_data:/qdrant/storage qdrant/qdrant
    docker run -p 6333:6333 qdrant/qdrant
    ```
-   Activate MongoDB
+   * Activate MongoDB
    ```sh
    docker pull mongo
    docker run -d -p 27017:27017 --name mongodb mongo
    docker start mongodb
    ```
-   Activate uvicorn
+   * Activate uvicorn
    ```sh
    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
    ```
 
-   Activate frontend
+   * Activate frontend
    ```sh
    npm run dev
    ```
