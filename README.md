@@ -6,6 +6,8 @@
    LifeStoryteller is a web application designed to help users upload photos, generate albums and videos, and view all their cherished memories in one place. With the ability to create albums and videos based on themes or specific images, LifeStoryteller makes it easy to organize and revisit special moments.
 </div>
 
+<img width="828" alt="Screenshot 2024-10-20 at 11 40 57 PM" src="https://github.com/user-attachments/assets/0c0180d5-182b-4fa5-8396-46e0eb547ae4">
+
 
 <!-- TABLE OF CONTENTS -->
 <details>
@@ -24,19 +26,19 @@
 ## Features
 **・Photo Upload** : xxx
 
-<img width="1438" alt="Screenshot 2024-02-10 at 4 49 27 PM" src="https://github.com/asakohayase/Hipnode-SocialMedia/assets/76857882/51f134e8-d0b4-49e6-ba23-caca66440b1c">
+<img width="609" alt="Screenshot 2024-10-20 at 11 37 25 PM" src="https://github.com/user-attachments/assets/da689a93-0e81-4b60-9aef-2be53f98a5b8">
 <br />
 <br />
 
 **・Album Generation** : Create photo albums using themes you describe in natural language, or let the uploaded images guide the album’s story.
 
-<img width="1430" alt="Screenshot 2024-02-10 at 5 02 11 PM" src="https://github.com/asakohayase/Hipnode-SocialMedia/assets/76857882/54038089-f2cf-42d9-b342-e9220cf844ea">
+<img width="607" alt="Screenshot 2024-10-20 at 11 37 41 PM" src="https://github.com/user-attachments/assets/76d73aaa-5730-437f-9937-bfcd7017a591">
 <br />
 <br />
 
 **・Video Creation** : Generate videos from the generated photo albums.
 
-<img width="1432" alt="Screenshot 2024-02-10 at 4 50 27 PM" src="https://github.com/asakohayase/Hipnode-SocialMedia/assets/76857882/43941387-ed32-41e9-8f75-0ab7db3ac91c">
+<img width="688" alt="Screenshot 2024-10-20 at 11 38 43 PM" src="https://github.com/user-attachments/assets/f333a73a-1ded-4326-86cb-aaf482679284">
 <br />
 <br />
 
@@ -63,7 +65,7 @@ To get a local copy up and running follow these simple example steps.
    
 1. Clone the repo
    ```sh
-   git clone https://github.com/asakohayase/ai_youtube_quiz_generator
+   git clone https://github.com/asakohayase/Lifestoryteller
    ```
 2. Install dependencies
    ```sh
@@ -71,7 +73,7 @@ To get a local copy up and running follow these simple example steps.
    npm install
    ```
    
-3. Enter your API key in `.env` 
+3. Create `.env` 
    * frontend
    ```js
    MONGODB_URI=
@@ -93,8 +95,31 @@ To get a local copy up and running follow these simple example steps.
    ```sh
    poetry shell
    ```
-5.  
+5.  Set the path to the virtual environment to Python Interpreter
+6.  To run the app
+   
+   Activate Qdrant
+   ```sh
+   docker volume create qdrant_data
+   docker run -p 6333:6333 -v qdrant_data:/qdrant/storage qdrant/qdrant
+   docker run -p 6333:6333 qdrant/qdrant
+   ```
+   Activate MongoDB
+   ```sh
+   docker pull mongo
+   docker run -d -p 27017:27017 --name mongodb mongo
+   docker start mongodb
+   ```
+   Activate uvicorn
+   ```sh
+   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+   ```
 
+   Activate frontend
+   ```sh
+   npm run dev
+   ```
+   
 
 <!-- CONTRIBUTING -->
 ## Contributing
