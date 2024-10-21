@@ -49,7 +49,7 @@
 
 * Frontend - Next.js, Typescript and Tailwind CSS
 * Backend - Python and Fast API
-* Storage - Mongo DB for storing photo and album metadata, AWS S3 for image storage and Qdrant for vector search
+* Storage - Mongo DB for storing photo and album metadata, AWS S3 for image storage and Qdrant for vector store
 * Others - CrewAI for image upload and album creation tasks
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
