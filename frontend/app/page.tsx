@@ -39,6 +39,7 @@ const FamilyPhotoAlbum = () => {
                 createdAt: album.cover_image.createdAt 
               } 
             : undefined,
+          image_count: album.images.length,
           createdAt: album.createdAt
         }));
         setAlbums(formattedAlbums);

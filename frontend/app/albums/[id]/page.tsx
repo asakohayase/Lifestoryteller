@@ -50,7 +50,6 @@ export default function AlbumDetail({ params }: { params: { id: string } }) {
   const fetchAlbum = async () => {
     try {
       const fetchedAlbum = await getAlbumById(params.id);
-      console.log('Fetched album:', fetchedAlbum);
       setAlbum(fetchedAlbum);
     } catch (err) {
       console.error('Error fetching album:', err);

@@ -1,10 +1,15 @@
+// components/UploadPhoto.tsx
 import React, { useRef, useState } from 'react';
 import { Upload } from 'lucide-react';
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { UploadPhotoProps } from '@/typing';
+
+interface UploadPhotoProps {
+  onUpload: (formData: FormData) => Promise<void>;
+  isUploading: boolean;
+}
 
 export default function UploadPhoto({ onUpload, isUploading }: UploadPhotoProps) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -13,23 +18,24 @@ export default function UploadPhoto({ onUpload, isUploading }: UploadPhotoProps)
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (formRef.current) {
-      const formData = new FormData(formRef.current);
+    
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) {
+      console.error('No file selected');
+      return;
+    }
 
-      if (fileInputRef.current?.files?.[0]) {
-        formData.set('file', fileInputRef.current.files[0]);
-      } else {
-        console.error('No file selected');
-        return;
-      }
+    const formData = new FormData();
+    formData.append('file', file);
 
-      try {
-        await onUpload(formData);
+    try {
+      await onUpload(formData);
+      if (formRef.current) {
         formRef.current.reset();
-        setFileSelected(false);
-      } catch (error) {
-        console.error('Error uploading image:', error);
       }
+      setFileSelected(false);
+    } catch (error) {
+      console.error('Error uploading image:', error);
     }
   };
 
@@ -41,7 +47,9 @@ export default function UploadPhoto({ onUpload, isUploading }: UploadPhotoProps)
     <Card className="bg-white shadow-lg rounded-lg overflow-hidden">
       <form ref={formRef} onSubmit={handleSubmit}>
         <CardContent className="p-6">
-          <Label htmlFor="file" className="text-xl font-semibold mb-4 text-black block">Upload a Photo</Label>
+          <Label htmlFor="file" className="text-xl font-semibold mb-4 text-black block">
+            Upload a Photo
+          </Label>
           <div className="flex items-center space-x-2">
             <Input 
               id="file" 
@@ -49,6 +57,7 @@ export default function UploadPhoto({ onUpload, isUploading }: UploadPhotoProps)
               type="file" 
               ref={fileInputRef}
               onChange={handleFileChange}
+              accept="image/*"
               className="bg-white text-black focus:ring-blue2 flex-grow" 
             />
             <Button 

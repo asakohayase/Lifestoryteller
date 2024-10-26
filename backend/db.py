@@ -21,10 +21,37 @@ import requests
 
 from utils.log_config import setup_logger
 
-load_dotenv() 
-
+load_dotenv()
 
 logger = setup_logger(__name__)
+
+
+def format_album(album: Dict[str, Any]) -> Dict[str, Any]:
+    """Helper function to ensure consistent album formatting across all endpoints"""
+    formatted_album = {
+        "id": str(album["_id"]),
+        "album_name": album["album_name"],
+        "description": album.get("description", ""),
+        "images": [],
+        "cover_image": None,
+        "image_count": 0,  # Initialize count
+        "createdAt": album["created_at"].isoformat() if "created_at" in album else None,
+    }
+
+    # Process images and generate fresh presigned URLs
+    for image in album.get("images", []):
+        if "id" in image and "url" in image:
+            s3_key = unquote(image["url"].split("/")[-1].split("?")[0])
+            presigned_url = generate_presigned_url(s3_key)
+            formatted_album["images"].append({"id": image["id"], "url": presigned_url})
+
+    # Update cover image and count
+    if formatted_album["images"]:
+        formatted_album["cover_image"] = formatted_album["images"][0]
+        formatted_album["image_count"] = len(formatted_album["images"])
+
+    return formatted_album
+
 
 def object_id_to_str(obj):
     if isinstance(obj, ObjectId):
@@ -122,7 +149,9 @@ def get_collection(name: str) -> AsyncIOMotorCollection:
     return MongoDB.collections[name]
 
 
-def generate_presigned_url(s3_object_name: str, expiration: int = 3600, as_attachment: bool = False) -> str:
+def generate_presigned_url(
+    s3_object_name: str, expiration: int = 3600, as_attachment: bool = False
+) -> str:
     """
     Generate a presigned URL for an S3 object.
 
@@ -132,17 +161,19 @@ def generate_presigned_url(s3_object_name: str, expiration: int = 3600, as_attac
     """
     try:
         params = {
-                "Bucket": S3Config.get_bucket_name(),
-                "Key": s3_object_name,
-            }
+            "Bucket": S3Config.get_bucket_name(),
+            "Key": s3_object_name,
+        }
         if as_attachment:
-            params["ResponseContentDisposition"] = f'attachment; filename="{os.path.basename(s3_object_name)}"'
-        
+            params["ResponseContentDisposition"] = (
+                f'attachment; filename="{os.path.basename(s3_object_name)}"'
+            )
+
         presigned_url = s3_client.generate_presigned_url(
             "get_object",
             Params=params,
             ExpiresIn=expiration,
-        )      
+        )
         return presigned_url
     except Exception as e:
         logger.error(
@@ -174,7 +205,7 @@ async def save_album(
             "description": description,
             "images": images,
             "cover_image": images[0] if images else None,
-           "created_at": created_at,
+            "created_at": created_at,
         }
     )
     return str(result.inserted_id)
@@ -200,15 +231,17 @@ async def generate_album_with_presigned_urls(
                 )
                 images.append({"id": str(image_id), "url": presigned_url})
             except Exception as e:
-                logger.error(f"Error generating presigned URL for image {image_id}: {str(e)}")
+                logger.error(
+                    f"Error generating presigned URL for image {image_id}: {str(e)}"
+                )
 
     if not images:
         raise ValueError("No valid images found for the album")
-    
+
     created_at = datetime.now(timezone.utc)
 
     album_id = await save_album(
-        album_data["album_name"], album_data["description"], images,  created_at
+        album_data["album_name"], album_data["description"], images, created_at
     )
 
     result = {
@@ -219,42 +252,8 @@ async def generate_album_with_presigned_urls(
         "cover_image": images[0] if images else None,
         "createdAt": created_at.isoformat(),
     }
-    
+
     return result
-
-async def get_albums() -> List[Dict[str, Any]]:
-    try:
-        albums_collection = get_collection("albums")
-        cursor = albums_collection.find().sort("created_at", -1)
-        albums = await cursor.to_list(length=None)
-
-        formatted_albums = []
-        for album in albums:
-            formatted_album = {
-                "id": str(album["_id"]),
-                "album_name": album["album_name"],
-                "description": album.get("description", ""),
-                "images": [],
-                "cover_image": None,
-                "createdAt": (
-                    album["created_at"].isoformat() if "created_at" in album else None
-                ),
-            }
-
-            for image in album.get("images", []):
-                if "id" in image and "url" in image:
-                    presigned_url = generate_presigned_url(unquote(image["url"].split("/")[-1].split("?")[0]))
-                    formatted_album["images"].append(
-                        {"id": image["id"], "url": presigned_url}
-                    )
-            if formatted_album["images"]:
-                formatted_album["cover_image"] = formatted_album["images"][0]
-
-            formatted_albums.append(formatted_album)
-        return formatted_albums
-    except Exception as e:
-        logger.error(f"Error in get_albums: {str(e)}")
-        raise
 
 
 async def get_all_photos(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
@@ -276,35 +275,20 @@ async def get_all_photos(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]
         logger.error(f"Error in get_all_photos: {str(e)}")
         raise
 
+
 async def get_all_albums(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
     try:
         albums_collection = get_collection("albums")
         cursor = albums_collection.find().sort("created_at", -1).skip(skip).limit(limit)
         albums = await cursor.to_list(length=limit)
-        
-        formatted_albums = []
-        for album in albums:
-            formatted_album = {
-                "id": str(album["_id"]),
-                "album_name": album["album_name"],
-                "description": album.get("description", ""),
-                "cover_image": None,
-                "images": album.get("images", []),  
-                "image_count": len(album.get("images", [])),
-                "createdAt": (
-                    album["created_at"].isoformat() if "created_at" in album else None
-                ),
-            }
-            if album.get("images"):
-                formatted_album["cover_image"] = {
-                    "id": album["images"][0]["id"],
-                    "url": generate_presigned_url(unquote(album["images"][0]["url"].split("/")[-1].split("?")[0]))
-                }
-            formatted_albums.append(formatted_album)
-        return formatted_albums
+        # Log formatted albums
+
+        logger.info(f"all_albums: {[format_album(album) for album in albums]}")
+        return [format_album(album) for album in albums]
     except Exception as e:
         logger.error(f"Error in get_all_albums: {str(e)}")
         raise
+
 
 async def get_recent_photos(limit: int = 4) -> List[Dict[str, Any]]:
     try:
@@ -331,33 +315,10 @@ async def get_recent_albums(limit: int = 4) -> List[Dict[str, Any]]:
         albums_collection = get_collection("albums")
         cursor = albums_collection.find().sort("created_at", -1).limit(limit)
         albums = await cursor.to_list(length=None)
-
-        formatted_albums = []
-        for album in albums:
-            formatted_album = {
-                "id": str(album["_id"]),
-                "album_name": album["album_name"],
-                "description": album.get("description", ""),
-                "images": [],
-                "cover_image": None,
-                "createdAt": (
-                   album["created_at"].isoformat() if "created_at" in album else None
-                ),
-            }
-
-            for image in album.get("images", []):
-                if "id" in image and "url" in image:
-                    presigned_url = generate_presigned_url(unquote(image["url"].split("/")[-1].split("?")[0]))
-                    formatted_album["images"].append(
-                        {"id": image["id"], "url": presigned_url}
-                    )
-            if formatted_album["images"]:
-                formatted_album["cover_image"] = formatted_album["images"][0]
-
-            formatted_albums.append(formatted_album)
-        return formatted_albums
+        logger.info(f"recent_albums: {[format_album(album) for album in albums]}")
+        return [format_album(album) for album in albums]
     except Exception as e:
-        logger.error(f"Error in get_albums: {str(e)}")
+        logger.error(f"Error in get_recent_albums: {str(e)}")
         raise
 
 
@@ -366,10 +327,9 @@ async def get_image_metadata(image_id: str):
     return await images_collection.find_one({"_id": image_id})
 
 
-async def get_album_by_id(album_id: str):
+async def get_album_by_id(album_id: str) -> Dict[str, Any]:
     try:
         albums_collection = get_collection("albums")
-
         object_id = ObjectId(album_id)
         album = await albums_collection.find_one({"_id": object_id})
 
@@ -377,62 +337,17 @@ async def get_album_by_id(album_id: str):
             logger.error(f"No album found with ID: {album_id}")
             return None
 
-        formatted_album = {
-            "id": str(album["_id"]),
-            "album_name": album["album_name"],
-            "description": album.get("description", ""),
-            "images": [],
-            "cover_image": None,
-            "createdAt": (
-                album["created_at"].isoformat() if "created_at" in album else None
-            ),
-            "video_url": None,
-        }
+        formatted_album = format_album(album)
 
-        for image in album.get("images", []):
-            try:
-                # Extract the full filename from the URL
-                full_filename_encoded = image["url"].split("/")[-1].split("?")[0]
-                # Decode the URL-encoded filename
-                full_filename = unquote(full_filename_encoded)
-
-                # Generate the presigned URL using the decoded filename
-                presigned_url = generate_presigned_url(full_filename)
-
-                # Append the presigned URL to the formatted album
-                formatted_album["images"].append(
-                    {"id": image["id"], "url": presigned_url}
-                )
-
-                logger.info(f"formatted_album:{formatted_album}")
-            except Exception as e:
-                logger.error(
-                    f"Error generating presigned URL for image {image['id']}: {str(e)}"
-                )
-
-        # Set the cover image to the first image if available
-        if formatted_album["images"]:
-            formatted_album["cover_image"] = formatted_album["images"][0]
-
-        # Handle video_url
+        # Add video_url if it exists (specific to album detail view)
         if album.get("video_url"):
-            try:
-                video_filename = album["video_url"].split("/")[-1].split("?")[0]
-                video_filename = unquote(video_filename)
-                
-                # Prepend the folder name to the video filename
-                s3_video_key = f"generated-video/{video_filename}"
-                
-                # Generate presigned URL using the correct S3 object key
-                formatted_album["video_url"] = generate_presigned_url(s3_video_key)
-            except Exception as e:
-                logger.error(f"Error generating presigned URL for video: {str(e)}")
-
-        logger.info(f"formatted_album:{formatted_album}")
+            video_filename = unquote(album["video_url"].split("/")[-1].split("?")[0])
+            s3_video_key = f"generated-video/{video_filename}"
+            formatted_album["video_url"] = generate_presigned_url(s3_video_key)
+        else:
+            formatted_album["video_url"] = None
 
         return formatted_album
-    
-
     except Exception as e:
         logger.error(f"Error fetching album by ID {album_id}: {str(e)}")
         raise
@@ -441,27 +356,28 @@ async def get_album_by_id(album_id: str):
 async def update_album_with_video(album_id: str, video_url: str):
     albums_collection = get_collection("albums")
     await albums_collection.update_one(
-        {"_id": ObjectId(album_id)},
-        {"$set": {"video_url": video_url}}
+        {"_id": ObjectId(album_id)}, {"$set": {"video_url": video_url}}
     )
+
 
 def download_image(presigned_url: str, path: str):
     try:
-        response = requests.get(presigned_url)  
+        response = requests.get(presigned_url)
         response.raise_for_status()
-        with open(path, 'wb') as file:
+        with open(path, "wb") as file:
             file.write(response.content)
-    except requests.RequestException as e:  
+    except requests.RequestException as e:
         logger.error(f"Error downloading image: {str(e)}")
         raise
+
 
 async def create_video(album: dict):
     try:
         with tempfile.TemporaryDirectory() as temp_dir:
             image_files = []
-            for i, image in enumerate(album['images']):
+            for i, image in enumerate(album["images"]):
                 image_path = os.path.join(temp_dir, f"image_{i}.jpg")
-                download_image(image['url'], image_path)
+                download_image(image["url"], image_path)
                 image_files.append(image_path)
 
             file_list_path = os.path.join(temp_dir, "file_list.txt")
@@ -473,12 +389,19 @@ async def create_video(album: dict):
             output_path = os.path.join(temp_dir, f"album_{album['id']}_video.mp4")
             ffmpeg_command = [
                 "ffmpeg",
-                "-f", "concat",
-                "-safe", "0",
-                "-i", file_list_path,
-                "-vsync", "vfr",
-                "-pix_fmt", "yuv420p",
-                output_path
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                file_list_path,
+                "-vf",
+                "scale=1480:1110",  # Round up to even numbers
+                "-vsync",
+                "vfr",
+                "-pix_fmt",
+                "yuv420p",
+                output_path,
             ]
             subprocess.run(ffmpeg_command, check=True)
 
@@ -486,15 +409,15 @@ async def create_video(album: dict):
             s3_url = upload_file_to_s3(output_path, s3_key)
 
             if s3_url:
-                await update_album_with_video(album['id'], s3_url)
-                logger.info(f"Video generated and uploaded successfully for album {album['id']}")
+                await update_album_with_video(album["id"], s3_url)
+                logger.info(
+                    f"Video generated and uploaded successfully for album {album['id']}"
+                )
             else:
                 logger.error(f"Failed to upload video for album {album['id']}")
 
     except Exception as e:
         logger.error(f"Error generating video for album {album['id']}: {str(e)}")
-
-
 
 
 def upload_file_to_s3(
@@ -534,8 +457,7 @@ async def delete_multiple_photos(image_ids: List[str]) -> Dict[str, Any]:
             s3_object_name = photo_doc["metadata"]["s3_object_name"]
             try:
                 S3Config.client.delete_object(
-                    Bucket=S3Config.get_bucket_name(),
-                    Key=s3_object_name
+                    Bucket=S3Config.get_bucket_name(), Key=s3_object_name
                 )
             except Exception as e:
                 logger.error(f"Error deleting photo from S3: {str(e)}")
@@ -550,17 +472,14 @@ async def delete_multiple_photos(image_ids: List[str]) -> Dict[str, Any]:
 
             # Remove from albums
             await albums_collection.update_many(
-                {"images.id": image_id},
-                {"$pull": {"images": {"id": image_id}}}
+                {"images.id": image_id}, {"$pull": {"images": {"id": image_id}}}
             )
 
             # Delete from Qdrant
             try:
                 qdrant_client.delete(
                     collection_name="family_book_images",
-                    points_selector=models.PointIdsList(
-                        points=[image_id]
-                    )
+                    points_selector=models.PointIdsList(points=[image_id]),
                 )
                 logger.info(f"Successfully deleted image {image_id} from Qdrant")
             except Exception as e:
@@ -573,6 +492,7 @@ async def delete_multiple_photos(image_ids: List[str]) -> Dict[str, Any]:
             results["failed"].append(image_id)
 
     return results
+
 
 async def delete_multiple_albums(album_ids: List[str]) -> Dict[str, Any]:
     """
@@ -597,7 +517,6 @@ async def delete_multiple_albums(album_ids: List[str]) -> Dict[str, Any]:
             results["failed"].append(album_id)
 
     return results
-
 
 
 # async def clear_all_images():

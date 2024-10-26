@@ -16,15 +16,12 @@ export async function uploadPhoto(formData: FormData) {
 
 
 export async function generateAlbum(input: FormData | { theme: string }): Promise<Album> {
-  console.log('Generating album');
 
   let formData: FormData;
 
   if (input instanceof FormData) {
-    console.log('Sending image-based request');
     formData = input;
   } else {
-    console.log('Sending theme-based request');
     formData = new FormData();
     formData.append('theme', input.theme);
   }
@@ -55,6 +52,7 @@ export async function generateAlbum(input: FormData | { theme: string }): Promis
     description: data.description,
     images: data.images,
     cover_image: data.cover_image,
+    image_count: data.images.length,
     createdAt: data.createdAt
   };
 }
@@ -89,7 +87,7 @@ export async function getRecentPhotos(limit: number = 4): Promise<Photo[]> {
 }
 
 export const getRecentAlbums = async (limit: number = 4): Promise<Album[]> => {
-  const response = await fetch('/api/recent-albums');
+  const response = await fetch(`/api/recent-albums?limit=${limit}`);
   if (!response.ok) {
     throw new Error('Failed to fetch albums');
   }
@@ -117,6 +115,7 @@ export async function getAlbumById(id: string): Promise<Album> {
     images: data.images,
     cover_image: data.cover_image,
     createdAt: data.createdAt,
+    image_count: data.images.length,
     video_url: data.video_url
   };
 }
@@ -137,7 +136,6 @@ export async function deleteMultiplePhotos(photoIds: string[]): Promise<void> {
   }
 
   const result = await response.json();
-  console.log('Deletion result:', result);
 
   if (result.failed && result.failed.length > 0) {
     console.warn('Some photos failed to delete:', result.failed);
@@ -170,7 +168,6 @@ export async function generateVideo(albumId: string): Promise<void> {
   }
 
   const data = await response.json();
-  console.log('Video generation started:', data);
 }
 
 export async function getVideoDownloadUrl(albumId: string): Promise<string> {
