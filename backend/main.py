@@ -2,7 +2,7 @@ import json
 
 from typing import Any, Dict, List, Optional
 import uuid
-from fastapi import BackgroundTasks, FastAPI, HTTPException,  UploadFile, File, Form
+from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -76,8 +76,10 @@ app = FastAPI(lifespan=lifespan)
 
 add_middleware(app)
 
+
 class BulkDeletePhotosRequest(BaseModel):
     photo_ids: List[str]
+
 
 class BulkDeleteAlbumsRequest(BaseModel):
     album_ids: List[str]
@@ -126,12 +128,17 @@ async def upload_image(file: UploadFile = File(...)):
 class AlbumRequest(BaseModel):
     theme: str
 
+
 @app.post("/generate-album")
-async def generate_album(image: Optional[UploadFile] = File(None), theme: Optional[str] = Form(None)):  
+async def generate_album(
+    image: Optional[UploadFile] = File(None), theme: Optional[str] = Form(None)
+):
     try:
         if not image and not theme:
             logger.error("Neither image nor theme provided")
-            raise HTTPException(status_code=400, detail="Either image or theme must be provided")
+            raise HTTPException(
+                status_code=400, detail="Either image or theme must be provided"
+            )
 
         uploaded_image_path = None
         if image:
@@ -150,7 +157,9 @@ async def generate_album(image: Optional[UploadFile] = File(None), theme: Option
 
             if not s3_url:
                 logger.error("Failed to upload to S3")
-                raise HTTPException(status_code=500, detail="Failed to upload image to S3")
+                raise HTTPException(
+                    status_code=500, detail="Failed to upload image to S3"
+                )
 
             uploaded_image_path = s3_url
             logger.info(f"Image uploaded to S3: {uploaded_image_path}")
@@ -158,12 +167,14 @@ async def generate_album(image: Optional[UploadFile] = File(None), theme: Option
         crew = FamilyBookCrew("album_job", qdrant_client)
 
         if uploaded_image_path:
-            logger.info(f"Processing image-based album generation: {uploaded_image_path}")
+            logger.info(
+                f"Processing image-based album generation: {uploaded_image_path}"
+            )
             crew.setup_crew(uploaded_image_path=uploaded_image_path)
         else:
             logger.info(f"Processing theme-based album generation: {theme}")
             crew.setup_crew(theme_input=theme)
-        
+
         result = crew.kickoff()
         logger.info(f"Crew result type: {type(result)}")
         logger.info(f"Crew result: {result}")
@@ -179,7 +190,9 @@ async def generate_album(image: Optional[UploadFile] = File(None), theme: Option
                 try:
                     album_data = json.loads(cleaned_result)
                 except json.JSONDecodeError:
-                    raise ValueError(f"Failed to parse crew result as JSON: {result.raw}")
+                    raise ValueError(
+                        f"Failed to parse crew result as JSON: {result.raw}"
+                    )
         elif isinstance(result, str):
             try:
                 album_data = json.loads(result)
@@ -196,7 +209,9 @@ async def generate_album(image: Optional[UploadFile] = File(None), theme: Option
             album_data = result
         else:
             logger.error(f"Unexpected result type: {type(result)}")
-            raise ValueError(f"Unexpected result format from album generation: {result}")
+            raise ValueError(
+                f"Unexpected result format from album generation: {result}"
+            )
 
         # Validate album_data
         required_keys = ["album_name", "description", "image_ids"]
@@ -212,10 +227,12 @@ async def generate_album(image: Optional[UploadFile] = File(None), theme: Option
         logger.error(f"Error generating album: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/all-photos")
 async def get_all_photos_route(skip: int = 0, limit: int = 100):
     photos = await get_all_photos(skip, limit)
     return {"photos": photos}
+
 
 @app.get("/recent-photos")
 async def get_recent_photos_route(limit: int = 4):
@@ -232,19 +249,25 @@ async def get_all_albums_route(skip: int = 0, limit: int = 100):
     try:
         albums = await get_all_albums(skip, limit)
         for album in albums:
-            if 'images' not in album or not album['images']:
+            if "images" not in album or not album["images"]:
                 logger.warning(f"Album {album['id']} has no images")
         return {"albums": albums}
     except Exception as e:
         print(f"Error fetching all albums: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/recent-albums")
 async def get_recent_albums_route(limit: int = 4):
     try:
         albums = await get_recent_albums(limit)
-        return {"albums": json.loads(json.dumps(albums, default=str))}
+        # Format consistently with all-albums
+        for album in albums:
+            if "images" not in album or not album["images"]:
+                logger.warning(f"Album {album['id']} has no images")
+        return {"albums": albums}
     except Exception as e:
+        logger.error(f"Error fetching recent albums: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -259,16 +282,18 @@ async def get_album(album_id: str):
     except Exception as e:
         logger.error(f"Error processing request for album {album_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @app.post("/generate-video/{album_id}")
 async def generate_video(album_id: str, background_tasks: BackgroundTasks):
     album = await get_album_by_id(album_id)
     if not album:
         raise HTTPException(status_code=404, detail="Album not found")
-    
+
     background_tasks.add_task(create_video, album)
     return {"message": "Video generation started", "album_id": album_id}
-    
+
+
 @app.get("/download-video/{album_id}")
 async def get_video_download_url(album_id: str):
     try:
@@ -278,19 +303,20 @@ async def get_video_download_url(album_id: str):
 
         # Extract the S3 key from the stored URL
         video_filename = album["video_url"].split("/")[-1].split("?")[0]
-        
+
         # Prepend the folder name (generated-video) to the video filename
         s3_key = f"generated-video/{video_filename}"
-        
+
         # Generate a new presigned URL for downloading
-        download_url = generate_presigned_url(s3_key, expiration=3600, as_attachment=True)
-        
+        download_url = generate_presigned_url(
+            s3_key, expiration=3600, as_attachment=True
+        )
+
         return {"download_url": download_url}
     except Exception as e:
         logger.error(f"Error generating download URL for album {album_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-   
 
 @app.delete("/photos/{image_id}")
 async def delete_photo_route(image_id: str):
@@ -298,7 +324,10 @@ async def delete_photo_route(image_id: str):
     if result["successful"]:
         return {"message": f"Photo {image_id} deleted successfully"}
     else:
-        raise HTTPException(status_code=404, detail="Photo not found or could not be deleted")
+        raise HTTPException(
+            status_code=404, detail="Photo not found or could not be deleted"
+        )
+
 
 @app.delete("/albums/{album_id}")
 async def delete_album_route(album_id: str):
@@ -306,16 +335,19 @@ async def delete_album_route(album_id: str):
     if result["successful"]:
         return {"message": f"Album {album_id} deleted successfully"}
     else:
-        raise HTTPException(status_code=404, detail="Album not found or could not be deleted")
+        raise HTTPException(
+            status_code=404, detail="Album not found or could not be deleted"
+        )
+
 
 @app.post("/photos/bulk-delete")
 async def bulk_delete_photos(request: BulkDeletePhotosRequest):
-    try:   
+    try:
         result = await delete_multiple_photos(request.photo_ids)
         return {
             "message": f"Deleted {len(result['successful'])} photos successfully",
-            "successful": result['successful'],
-            "failed": result['failed']
+            "successful": result["successful"],
+            "failed": result["failed"],
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -326,12 +358,13 @@ async def bulk_delete_albums(request: BulkDeleteAlbumsRequest):
     try:
         result = await delete_multiple_albums(request.album_ids)
         return {
-        "message": f"Deleted {len(result['successful'])} albums successfully",
-        "successful": result["successful"],
-        "failed": result["failed"]
-    }
+            "message": f"Deleted {len(result['successful'])} albums successfully",
+            "successful": result["successful"],
+            "failed": result["failed"],
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # Clear all data from Qdrant, MongoDB, and S3
 # @app.post("/admin/clear-all-data")
@@ -340,51 +373,60 @@ async def bulk_delete_albums(request: BulkDeleteAlbumsRequest):
 #     clear_qdrant_collection("family_book_images")
 #     return {"message": "All data has been cleared"}
 
+
 # Retrieve data stored in Qdrant
 @app.get("/qdrant-data")
 async def get_all_qdrant_data() -> List[Dict[str, Any]]:
     try:
         qdrant_client = QdrantClient("localhost", port=6333)
-        
+
         all_data = []
         offset = None
         limit = 100  # Number of records to fetch per request
-        
+
         while True:
             results = qdrant_client.scroll(
                 collection_name="family_book_images",
                 limit=limit,
                 offset=offset,
                 with_payload=True,
-                with_vectors=True  # Explicitly request vectors
+                with_vectors=True,  # Explicitly request vectors
             )
-            
+
             if not results or not results[0]:
                 break
-            
+
             points, next_page_offset = results
-            
+
             for point in points:
                 vector_info = "Not available"
                 if point.vector:
                     vector_info = f"First 5 elements: {point.vector[:5]}, Length: {len(point.vector)}"
                 else:
                     vector_info = "Vector is null"
-                
-                all_data.append({
-                    "id": point.id,
-                    "payload": point.payload,
-                    "vector_info": vector_info
-                })
-            
+
+                all_data.append(
+                    {
+                        "id": point.id,
+                        "payload": point.payload,
+                        "vector_info": vector_info,
+                    }
+                )
+
             if next_page_offset is None:
                 break
-            
+
             offset = next_page_offset
 
-        return all_data if all_data else {"message": "No data found in the 'family_book_images' collection."}
+        return (
+            all_data
+            if all_data
+            else {"message": "No data found in the 'family_book_images' collection."}
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving data from Qdrant: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving data from Qdrant: {str(e)}"
+        )
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ export interface Photo {
     description?: string;
     cover_image?: Photo;
     images: Photo[];
+    image_count: number;
     createdAt: string;
     video_url?: string;
   }

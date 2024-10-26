@@ -100,7 +100,7 @@ export default function RecentAlbums({ albums,  onAlbumsDeleted }: AlbumListProp
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black opacity-60"></div>
               <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                 <h3 className="text-lg font-semibold truncate">{album.album_name}</h3>
-                <p className="text-sm"> {album.images.length} {album.images.length === 1 ? 'photo' : 'photos'} </p>
+                <p className="text-sm"> {album.image_count} {album.image_count === 1 ? 'photo' : 'photos'} </p>
                 <p className="text-sm"> {formatDate(album.createdAt)} </p>
              </div>
               <div className="absolute top-2 left-2 z-10" onClick={(e) => handleSelectAlbum(album.id, e)}>
