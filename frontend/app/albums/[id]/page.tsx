@@ -158,8 +158,15 @@ export default function AlbumDetail({ params }: { params: { id: string } }) {
             ref={videoRef}
             controls 
             className="w-full max-w-3xl mx-auto mb-4"
-            onCanPlay={() => setIsVideoProcessed(true)}
-            onError={() => setVideoError('An error occurred while loading the video.')}
+            onCanPlay={() => {
+              setIsVideoProcessed(true);
+            }}
+            onError={(e) => {
+              const target = e.target as HTMLVideoElement;
+              const error = target.error?.message || 'An error occurred while loading the video.';
+              setVideoError(error);
+              setIsVideoProcessed(false);
+            }}
           >
             <source src={album.video_url} type="video/mp4" />
             Your browser does not support the video tag.

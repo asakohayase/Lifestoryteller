@@ -8,7 +8,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
    const response = await fetch(buildApiUrl(`/download-video/${id}`));
 
     if (!response.ok) {
-      throw new Error('Failed to get video download URL');
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || 'Failed to get video download URL');
     }
 
     const data = await response.json();

@@ -385,7 +385,7 @@ async def get_video_download_url(album_id: str):
 
         # Generate a new presigned URL for downloading
         download_url = generate_presigned_url(
-            s3_key, expiration=3600, as_attachment=True
+            s3_key, expiration=3600, for_frontend=True, as_attachment=True
         )
 
         return {"download_url": download_url}
