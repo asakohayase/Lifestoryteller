@@ -1,14 +1,12 @@
+import { buildApiUrl } from '@/app/lib/config';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
-  const fullUrl = `${backendUrl}/albums/${params.id}`;
-
   try {
-    const response = await fetch(fullUrl);
+    const response = await fetch(buildApiUrl(`/albums/${params.id}`));
     
     if (!response.ok) {
       console.error('Backend response not OK:', response.status, response.statusText);

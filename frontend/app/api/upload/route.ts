@@ -4,6 +4,7 @@ import { join } from 'path'
 import { createReadStream } from 'fs'
 import FormData from 'form-data'
 import fetch from 'node-fetch'
+import { buildApiUrl } from '@/app/lib/config'
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
     const apiFormData = new FormData()
     apiFormData.append('file', createReadStream(filepath), filename)
 
-    const response = await fetch('http://127.0.0.1:8000/upload-image', {
+    const response = await fetch(buildApiUrl('/upload-image'), {
       method: 'POST',
       body: apiFormData,
     })

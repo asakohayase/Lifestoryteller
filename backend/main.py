@@ -1,15 +1,19 @@
+from datetime import datetime, timezone
 import json
-
-from typing import Any, Dict, List, Optional
+import os
 import uuid
-from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile, File, Form
+from contextlib import asynccontextmanager
+from typing import Any, Dict, List, Optional, Union
+
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-
-from utils.log_config import setup_logger
-from tools import ensure_qdrant_collection
-from crew import FamilyBookCrew
 from qdrant_client import QdrantClient
+
+import boto3
+from motor.motor_asyncio import AsyncIOMotorClient
+
+from crew import FamilyBookCrew
 from db import (
     connect_to_mongo,
     close_mongo_connection,
@@ -22,85 +26,203 @@ from db import (
     get_all_albums,
     get_all_photos,
     get_recent_albums,
-    save_image,
     get_recent_photos,
+    save_image,
     upload_file_to_s3,
 )
-from crewai.crews.crew_output import CrewOutput
-
 from middleware import add_middleware
-from contextlib import asynccontextmanager
-from qdrant_client.http.models import ScrollRequest
+from tools import ensure_qdrant_collection
+from utils.log_config import setup_logger
 
+# Define CrewOutput as a type alias for what crew.kickoff() might return
+CrewResult = Union[str, Dict[str, Any]]
 
-qdrant_client = QdrantClient("localhost", port=6333)
-
+# Initialize logger and Qdrant client
 logger = setup_logger(__name__)
 
+qdrant_client = QdrantClient(
+    host=os.getenv("QDRANT_HOST", "localhost"),
+    port=int(os.getenv("QDRANT_PORT", 6333))
+)
 
 def parse_string_to_dict(s: str) -> dict:
+    """Parse a string that looks like a dictionary into an actual dictionary."""
     try:
         # First, try to parse it as JSON
         return json.loads(s)
     except json.JSONDecodeError:
-        # If JSON parsing fails, use a custom parsing method
-        # Remove leading/trailing whitespace and newlines
-        s = s.strip()
-        # Remove the outer curly braces if present
-        s = s.strip("{}")
-        # Split the string into key-value pairs
+        # If JSON parsing fails, use custom parsing method
+        s = s.strip().strip("{}")
         pairs = [pair.split(":", 1) for pair in s.split('",')]
-        # Convert to dictionary
         result = {}
         for key, value in pairs:
             key = key.strip().strip('"')
             value = value.strip().strip('"')
             if value.startswith("[") and value.endswith("]"):
-                # Handle list values
                 value = [v.strip().strip('"') for v in value[1:-1].split(",")]
             result[key] = value
         return result
 
+def parse_crew_result(result: CrewResult) -> Dict[str, Any]:
+    """Parse and validate the crew result into a consistent format."""
+    logger.debug(f"Parsing crew result of type: {type(result)}")
+    logger.debug(f"Raw result: {result!r}")
+
+    if isinstance(result, str):
+        try:
+            album_data = json.loads(result)
+        except json.JSONDecodeError:
+            album_data = parse_string_to_dict(result)
+    elif isinstance(result, dict):
+        album_data = result
+    else:
+        raise ValueError(f"Unexpected result format from album generation: {result}")
+
+    # Validate required keys
+    required_keys = ["album_name", "description", "image_ids"]
+    if not all(key in album_data for key in required_keys):
+        missing_keys = [key for key in required_keys if key not in album_data]
+        raise ValueError(f"Invalid album data format: missing keys {missing_keys}")
+
+    return album_data
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Connect to MongoDB
-    await connect_to_mongo()
-    ensure_qdrant_collection()
-    yield
-    # Shutdown: Close MongoDB connection
-    await close_mongo_connection()
+    logger.info("Starting application...")
+    
+    # Test MongoDB connection
+    try:
+        await connect_to_mongo()
+        logger.info("Successfully connected to MongoDB")
+    except Exception as e:
+        logger.error(f"Failed to connect to MongoDB: {e}")
+        raise
 
+    # Test Qdrant connection
+    try:
+        collections = qdrant_client.get_collections()
+        logger.info(f"Successfully connected to Qdrant at {os.getenv('QDRANT_HOST')}:{os.getenv('QDRANT_PORT')}")
+        logger.info(f"Available collections: {collections}")
+    except Exception as e:
+        logger.error(f"Failed to connect to Qdrant: {e}")
+        raise
+
+    # Test MinIO/S3 connection
+    try:
+        s3_client = boto3.client(
+            's3',
+            endpoint_url="http://minio:9000",
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+            region_name=os.getenv("AWS_REGION")
+        )
+        buckets = s3_client.list_buckets()
+        logger.info(f"Successfully connected to MinIO/S3")
+        logger.info(f"Available buckets: {buckets}")
+    except Exception as e:
+        logger.error(f"Failed to connect to MinIO/S3: {e}")
+        raise
+
+    try:
+        ensure_qdrant_collection()
+        logger.info("Qdrant collection setup complete")
+    except Exception as e:
+        logger.error(f"Failed to setup Qdrant collection: {e}")
+        raise
+
+    logger.info("All services connected successfully")
+    yield
+    
+    # Cleanup
+    await close_mongo_connection()
+    logger.info("Application shutdown complete")
 
 app = FastAPI(lifespan=lifespan)
-
 add_middleware(app)
 
+@app.get("/health")
+async def health_check():
+    # Initialize health status with all required keys
+    health_status = {
+        "status": "ok",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "services": {
+            "mongodb": "unknown",
+            "qdrant": "unknown",
+            "minio": "unknown"
+        }
+    }
+    
+    # Check MongoDB
+    try:
+        db = AsyncIOMotorClient(os.getenv("MONGODB_URI", "mongodb://mongodb:27017")).get_database("family_photo_album")
+        await db.command("ping")
+        health_status["services"]["mongodb"] = "connected"
+    except Exception as e:
+        health_status["services"]["mongodb"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    # Check Qdrant
+    try:
+        collections = qdrant_client.get_collections()
+        health_status["services"]["qdrant"] = {
+            "status": "connected",
+            "collections": [c.name for c in collections.collections]
+        }
+    except Exception as e:
+        health_status["services"]["qdrant"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    # Check MinIO/S3
+    try:
+        s3_client = boto3.client(
+            's3',
+            endpoint_url="http://minio:9000",
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+            region_name=os.getenv("AWS_REGION")
+        )
+        buckets = s3_client.list_buckets()
+        health_status["services"]["minio"] = {
+            "status": "connected",
+            "buckets": [b["Name"] for b in buckets["Buckets"]]
+        }
+    except Exception as e:
+        health_status["services"]["minio"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
 
+    return health_status
+
+
+# Pydantic models
 class BulkDeletePhotosRequest(BaseModel):
     photo_ids: List[str]
-
 
 class BulkDeleteAlbumsRequest(BaseModel):
     album_ids: List[str]
 
+class AlbumRequest(BaseModel):
+    theme: str
 
 @app.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
-    # Save the uploaded file
-    contents = await file.read()
-    file_path = f"/tmp/{file.filename}"
-    with open(file_path, "wb") as f:
-        f.write(contents)
+    try:
+        # Save the uploaded file
+        contents = await file.read()
+        file_path = f"/tmp/{file.filename}"
+        with open(file_path, "wb") as f:
+            f.write(contents)
 
-    # Generate a single UUID for both Qdrant and MongoDB
-    image_id = str(uuid.uuid4())
+        # Generate IDs and upload to S3
+        image_id = str(uuid.uuid4())
+        s3_object_name = f"{image_id}-{file.filename}"
+        s3_url = upload_file_to_s3(file_path, s3_object_name)
 
-    # Generate S3 object name and upload to S3
-    s3_object_name = f"{image_id}-{file.filename}"
-    s3_url = upload_file_to_s3(file_path, s3_object_name)
+        if not s3_url:
+            logger.error("Failed to upload to S3")
+            return {"error": "Failed to upload to S3"}
 
-    if s3_url:
+        # Save metadata
         metadata = {
             "image_id": image_id,
             "original_filename": file.filename,
@@ -108,121 +230,75 @@ async def upload_image(file: UploadFile = File(...)):
             "s3_object_name": s3_object_name,
         }
 
-        # Save metadata to MongoDB
+        # Save to MongoDB
         mongo_result = await save_image(image_id, file_path, metadata)
         if not mongo_result:
-            print("Failed to save image metadata to MongoDB")
+            logger.error("Failed to save image metadata to MongoDB")
             return {"error": "Failed to save image metadata"}
 
-        # Process with FamilyBookCrew
+        # Process with crew
         crew = FamilyBookCrew("upload_job", qdrant_client)
         crew.setup_crew(image_data=file_path, image_id=image_id)
         crew_result = crew.kickoff()
 
         return {"image_id": image_id, "s3_url": s3_url, "crew_result": crew_result}
-    else:
-        logger.error("Failed to upload to S3")
-        return {"error": "Failed to upload to S3"}
 
-
-class AlbumRequest(BaseModel):
-    theme: str
-
+    except Exception as e:
+        logger.error(f"Error in upload_image: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/generate-album")
 async def generate_album(
-    image: Optional[UploadFile] = File(None), theme: Optional[str] = Form(None)
+    image: Optional[UploadFile] = File(None),
+    theme: Optional[str] = Form(None)
 ):
     try:
         if not image and not theme:
             logger.error("Neither image nor theme provided")
             raise HTTPException(
-                status_code=400, detail="Either image or theme must be provided"
+                status_code=400,
+                detail="Either image or theme must be provided"
             )
 
         uploaded_image_path = None
         if image:
-            # Save the uploaded file
+            # Handle image upload
             contents = await image.read()
             file_path = f"/tmp/{image.filename}"
             with open(file_path, "wb") as f:
                 f.write(contents)
 
-            # Generate a single UUID for S3
             image_id = str(uuid.uuid4())
-
-            # Generate S3 object name and upload to S3
             s3_object_name = f"generated-album/{image_id}-{image.filename}"
             s3_url = upload_file_to_s3(file_path, s3_object_name)
 
             if not s3_url:
                 logger.error("Failed to upload to S3")
                 raise HTTPException(
-                    status_code=500, detail="Failed to upload image to S3"
+                    status_code=500,
+                    detail="Failed to upload image to S3"
                 )
 
             uploaded_image_path = s3_url
             logger.info(f"Image uploaded to S3: {uploaded_image_path}")
 
+        # Set up crew
         crew = FamilyBookCrew("album_job", qdrant_client)
-
         if uploaded_image_path:
-            logger.info(
-                f"Processing image-based album generation: {uploaded_image_path}"
-            )
+            logger.info(f"Processing image-based album generation: {uploaded_image_path}")
             crew.setup_crew(uploaded_image_path=uploaded_image_path)
         else:
             logger.info(f"Processing theme-based album generation: {theme}")
             crew.setup_crew(theme_input=theme)
 
+        # Get and parse result
         result = crew.kickoff()
-        logger.info(f"Crew result type: {type(result)}")
-        logger.info(f"Crew result: {result}")
-
-        if isinstance(result, CrewOutput):
-            try:
-                album_data = json.loads(result.raw)
-            except json.JSONDecodeError as json_error:
-                logger.error(f"JSON parsing error: {str(json_error)}")
-                logger.error(f"Raw result: {result.raw}")
-                # Attempt to clean and parse the JSON
-                cleaned_result = result.raw.replace("'", '"').strip()
-                try:
-                    album_data = json.loads(cleaned_result)
-                except json.JSONDecodeError:
-                    raise ValueError(
-                        f"Failed to parse crew result as JSON: {result.raw}"
-                    )
-        elif isinstance(result, str):
-            try:
-                album_data = json.loads(result)
-            except json.JSONDecodeError as json_error:
-                logger.error(f"JSON parsing error: {str(json_error)}")
-                logger.error(f"Raw result: {result}")
-                # Attempt to clean and parse the JSON
-                cleaned_result = result.replace("'", '"').strip()
-                try:
-                    album_data = json.loads(cleaned_result)
-                except json.JSONDecodeError:
-                    raise ValueError(f"Failed to parse crew result as JSON: {result}")
-        elif isinstance(result, dict):
-            album_data = result
-        else:
-            logger.error(f"Unexpected result type: {type(result)}")
-            raise ValueError(
-                f"Unexpected result format from album generation: {result}"
-            )
-
-        # Validate album_data
-        required_keys = ["album_name", "description", "image_ids"]
-        if not all(key in album_data for key in required_keys):
-            missing_keys = [key for key in required_keys if key not in album_data]
-            raise ValueError(f"Invalid album data format: missing keys {missing_keys}")
-
+        album_data = parse_crew_result(result)
+        
         # Generate album with presigned URLs
         album_with_urls = await generate_album_with_presigned_urls(album_data)
-
         return JSONResponse(content=album_with_urls)
+
     except Exception as e:
         logger.error(f"Error generating album: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

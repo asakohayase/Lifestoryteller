@@ -1,0 +1,95 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000 
+      - BACKEND_URL=http://backend:8000
+      - NEXT_PUBLIC_S3_ENDPOINT=http://localhost:9000  
+      - NEXT_PUBLIC_S3_BUCKET_NAME=family-photos       
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017
+      - AWS_ACCESS_KEY_ID=minio
+      - AWS_SECRET_ACCESS_KEY=minio123
+      - AWS_REGION=us-east-1
+      - S3_BUCKET_NAME=family-photos
+      - FRONTEND_URL=http://frontend:3000
+      - QDRANT_HOST=qdrant     
+      - QDRANT_PORT=6333
+      - S3_ENDPOINT_URL=http://minio:9000      
+    depends_on:
+      - mongodb
+      - qdrant
+      - minio
+    networks:
+      - app-network
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app-network
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - app-network
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9090:9090"
+    volumes:
+      - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=minio
+      - MINIO_ROOT_PASSWORD=minio123
+    command: server /data --console-address ":9090"
+    networks:
+      - app-network
+
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set myminio http://minio:9000 minio minio123;
+      mc mb myminio/family-photos;
+      mc anonymous set public myminio/family-photos;
+      exit 0;
+      "
+    networks:
+      - app-network
+
+volumes:
+  mongodb_data:
+  qdrant_data:
+  minio_data:
+
+networks:
+  app-network:
+    driver: bridge

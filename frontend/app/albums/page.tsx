@@ -117,6 +117,7 @@ export default function AllAlbums() {
                   fill
                   sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                   style={{ objectFit: 'cover' }}
+                  unoptimized={true}
                 />
               ) : (
                 <div className="w-full h-full bg-gray-200 flex items-center justify-center">

@@ -1,10 +1,11 @@
+import { buildApiUrl } from '@/app/lib/config';
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { id } = params;
 
   try {
-    const response = await fetch(`http://127.0.0.1:8000/generate-video/${id}`, {
+    const response = await fetch(buildApiUrl(`/generate-video/${id}`), {
       method: 'POST',
     });
 

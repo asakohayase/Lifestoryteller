@@ -1,6 +1,8 @@
+"use client";
+
 import { Camera, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { RecentPhotoProps } from '@/typing';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Button } from './ui/button';
 import { Checkbox } from "@/components/ui/checkbox"
@@ -10,6 +12,7 @@ import Link from 'next/link';
 export default function RecentPhotos({ photos, onPhotoDeleted }: RecentPhotoProps) {
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+
 
   const handleSelectPhoto = (photoId: string) => {
     setSelectedPhotos(prev => 
@@ -67,7 +70,7 @@ export default function RecentPhotos({ photos, onPhotoDeleted }: RecentPhotoProp
       </div>
     ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {photos.map((photo) => (
+       {photos.map((photo) => ( 
           <div key={photo.id} className="aspect-square relative rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
             {photo.url ? (
               <Image 
@@ -78,6 +81,7 @@ export default function RecentPhotos({ photos, onPhotoDeleted }: RecentPhotoProp
                 style={{
                   objectFit: 'cover',
                 }}
+                unoptimized={true}
               />
             ) : (
               <ImageIcon className="h-full w-full text-gray-400 p-4" />
@@ -89,7 +93,7 @@ export default function RecentPhotos({ photos, onPhotoDeleted }: RecentPhotoProp
               />
             </div>
           </div>
-        ))}
+       ))}
       </div>
     )}
   </div>
