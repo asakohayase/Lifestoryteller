@@ -159,26 +159,7 @@ def get_collection(name: str) -> AsyncIOMotorCollection:
 
 
 
-# def generate_presigned_url(s3_object_name: str, expiration: int = 3600) -> str:
-#     try:
-#         url = S3Config.client.generate_presigned_url(
-#             'get_object',
-#             Params={
-#                 'Bucket': S3Config.get_bucket_name(),
-#                 'Key': s3_object_name,
-#             },
-#             ExpiresIn=expiration,
-#         )
-#         # Replace internal Docker network URL with localhost for frontend access
-#         if 'minio:9000' in url:
-#             url = url.replace('minio:9000', 'localhost:9000')
-#         logger.info(f"Generated presigned URL for {s3_object_name}: {url}")
-#         return url
-#     except Exception as e:
-#         logger.error(f"Error generating presigned URL: {str(e)}")
-#         raise
-
-def generate_presigned_url(s3_object_name: str, expiration: int = 3600, for_frontend: bool = True) -> str:
+def generate_presigned_url(s3_object_name: str, expiration: int = 3600, for_frontend: bool = True,  as_attachment: bool = False) -> str:
     """
     Generate a presigned URL for S3 object access.
     
@@ -188,12 +169,18 @@ def generate_presigned_url(s3_object_name: str, expiration: int = 3600, for_fron
         for_frontend: If True, returns URL with localhost, if False, keeps internal minio URL
     """
     try:
+        params = {
+            'Bucket': S3Config.get_bucket_name(),
+            'Key': s3_object_name,
+        }
+        
+        if as_attachment:
+            filename = s3_object_name.split('/')[-1]
+            params['ResponseContentDisposition'] = f'attachment; filename="{filename}"'
+
         url = S3Config.client.generate_presigned_url(
             'get_object',
-            Params={
-                'Bucket': S3Config.get_bucket_name(),
-                'Key': s3_object_name,
-            },
+            Params=params,
             ExpiresIn=expiration,
         )
         
@@ -372,6 +359,13 @@ async def get_album_by_id(album_id: str) -> Dict[str, Any]:
         else:
             formatted_album["video_url"] = None
 
+        if album.get("video_url"):
+            video_filename = unquote(album["video_url"].split("/")[-1].split("?")[0])
+            s3_video_key = f"generated-video/{video_filename}"
+            formatted_album["video_url"] = generate_presigned_url(s3_video_key, for_frontend=True)  # Make sure for_frontend is True
+        else:
+            formatted_album["video_url"] = None
+
         return formatted_album
     except Exception as e:
         logger.error(f"Error fetching album by ID {album_id}: {str(e)}")
@@ -387,6 +381,10 @@ async def update_album_with_video(album_id: str, video_url: str):
 
 def download_image(presigned_url: str, path: str):
     try:
+        if 'localhost:9000' in presigned_url:
+            presigned_url = presigned_url.replace('localhost:9000', 'minio:9000')
+        
+        logger.info(f"Downloading image from: {presigned_url}")
         response = requests.get(presigned_url)
         response.raise_for_status()
         with open(path, "wb") as file:
@@ -402,7 +400,9 @@ async def create_video(album: dict):
             image_files = []
             for i, image in enumerate(album["images"]):
                 image_path = os.path.join(temp_dir, f"image_{i}.jpg")
-                download_image(image["url"], image_path)
+                internal_url = image["url"].replace('localhost:9000', 'minio:9000')
+                logger.info(f"Downloading image from internal URL: {internal_url}")
+                download_image(internal_url, image_path)
                 image_files.append(image_path)
 
             file_list_path = os.path.join(temp_dir, "file_list.txt")
