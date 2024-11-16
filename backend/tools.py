@@ -1,4 +1,5 @@
 from io import BytesIO
+import os
 from typing import Any, List, Optional
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -16,7 +17,11 @@ from utils.log_config import setup_logger
 logger = setup_logger(__name__)
 
 # Qdrant setup
-qdrant_client = QdrantClient("localhost", port=6333)
+# qdrant_client = QdrantClient("qdrant", port=6333)
+qdrant_client = QdrantClient(
+    host=os.getenv("QDRANT_HOST", "qdrant"),  
+    port=int(os.getenv("QDRANT_PORT", 6333))
+)
 collection_name = "family_book_images"
 
 
@@ -115,13 +120,21 @@ class ImageUploadTool(BaseTool):
 
 class ImageRetrievalInput(BaseModel):
     text_query: str = Field(None, description="Text description for image retrieval")
-    uploaded_image_path: str = Field(None, description="Path to image file for image-based retrieval")
+    uploaded_image_path: str = Field(
+        None, description="Path to image file for image-based retrieval"
+    )
+
+
 
 class ImageRetrievalTool(BaseTool):
     name: str = "image_retrieval"
-    description: str = "Retrieves similar images based on text descriptions or image input"
+    description: str = (
+        "Retrieves similar images based on text descriptions or image input"
+    )
     args_schema: type[BaseModel] = ImageRetrievalInput
-    qdrant_client: QdrantClient = Field(description="Qdrant client for vector operations")
+    qdrant_client: QdrantClient = Field(
+        description="Qdrant client for vector operations"
+    )
     model: Any = Field(default=None, description="CLIP model for processing")
     processor: Any = Field(default=None, description="CLIP processor for preprocessing")
 
@@ -132,37 +145,73 @@ class ImageRetrievalTool(BaseTool):
         self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
         ensure_qdrant_collection()
 
-    def _run(self, text_query: Optional[str] = None, uploaded_image_path: Optional[str] = None) -> List[str]:
+    def _extract_s3_key(self, url: str) -> str:
+        """Extract the S3 key from a MinIO URL."""
+        try:
+            # If it's a full URL (starts with http)
+            if url.startswith('http'):
+                # Just take everything after 'family-photos/'
+                parts = url.split('family-photos/')
+                if len(parts) > 1:
+                    return parts[1].split('?')[0]
+            
+            # If it's just a path
+            elif url.startswith('generated-album/'):
+                return url
+                
+            logger.debug(f"Extracted key: {url}")
+            return url
+            
+        except Exception as e:
+            logger.error(f"Error extracting S3 key from {url}: {e}")
+            return url
+
+    def _run(
+        self,
+        text_query: Optional[str] = None,
+        uploaded_image_path: Optional[str] = None,
+    ) -> List[str]:
         try:
             if text_query:
                 logger.info(f"Processing text query: {text_query}")
-                inputs = self.processor(text=[text_query], return_tensors="pt", padding=True)
+                inputs = self.processor(
+                    text=[text_query], return_tensors="pt", padding=True
+                )
                 with torch.no_grad():
                     embedding = self.model.get_text_features(**inputs).numpy().tolist()
                 score_threshold = 0.2
             elif uploaded_image_path:
-                    logger.info(f"Processing image from URL: {uploaded_image_path}")
-                    s3_object_name = uploaded_image_path.split('com/')[-1]
-                    presigned_url = generate_presigned_url(s3_object_name)
-                    response = requests.get(presigned_url)
-                    response.raise_for_status()
-                    image = Image.open(BytesIO(response.content))
-                    inputs = self.processor(images=image, return_tensors="pt")
-                    with torch.no_grad():
-                        embedding = self.model.get_image_features(**inputs).numpy().tolist()
-                    score_threshold = 0.6
+                logger.info(f"Processing image from URL: {uploaded_image_path}")
+                s3_key = self._extract_s3_key(uploaded_image_path)
+                logger.info(f"Extracted S3 key: {s3_key}")
+                
+                # Generate presigned URL for internal use (keep minio:9000)
+                presigned_url = generate_presigned_url(s3_key, for_frontend=False)
+                logger.info(f"Generated internal presigned URL for key: {s3_key}")
+                
+                response = requests.get(presigned_url)
+                response.raise_for_status()
+                image = Image.open(BytesIO(response.content))
+                inputs = self.processor(images=image, return_tensors="pt")
+                with torch.no_grad():
+                    embedding = self.model.get_image_features(**inputs).numpy().tolist()
+                score_threshold = 0.6
             else:
-                raise ValueError("Either text_query or uploaded_image_path must be provided")
+                raise ValueError(
+                    "Either text_query or uploaded_image_path must be provided"
+                )
 
             search_results = self.qdrant_client.search(
                 collection_name="family_book_images",
                 query_vector=embedding[0],
                 limit=20,
-                score_threshold=score_threshold
+                score_threshold=score_threshold,
             )
 
             for result in search_results:
-                logger.info(f"Image ID: {result.payload['image_id']}, Score: {result.score}")
+                logger.info(
+                    f"Image ID: {result.payload['image_id']}, Score: {result.score}"
+                )
 
             filtered_results = [
                 result.payload["image_id"]
@@ -177,6 +226,7 @@ class ImageRetrievalTool(BaseTool):
         except Exception as e:
             logger.error(f"Error in image retrieval: {str(e)}")
             raise
+
 
 def get_tools(qdrant_client):
     return [ImageUploadTool(qdrant_client), ImageRetrievalTool(qdrant_client)]

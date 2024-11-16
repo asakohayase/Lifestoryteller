@@ -4,6 +4,7 @@ import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import FormData from 'form-data';
 import { createReadStream } from 'fs';
+import { buildApiUrl } from '@/app/lib/config';
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
       });
 
       try {
-        const response = await fetch('http://127.0.0.1:8000/generate-album', {
+        const response = await fetch(buildApiUrl('/generate-album'), {
           method: 'POST',
           body: apiFormData,
           headers: apiFormData.getHeaders(),
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
     } else if (theme) {
       apiFormData.append('theme', theme);
 
-      const response = await fetch('http://127.0.0.1:8000/generate-album', {
+      const response = await fetch(buildApiUrl('/generate-album'), {
         method: 'POST',
         body: apiFormData,
         headers: apiFormData.getHeaders(),

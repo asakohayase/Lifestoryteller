@@ -1,11 +1,13 @@
+import { buildApiUrl } from '@/app/lib/config';
 import { NextResponse } from 'next/server';
+
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const limit = Number(searchParams.get('limit')) || 4;
 
   try {
-    const response = await fetch(`http://127.0.0.1:8000/recent-albums?limit=${limit}`);
+    const response = await fetch(buildApiUrl(`/recent-albums?limit=${limit}`));
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }

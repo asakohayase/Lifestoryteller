@@ -1,3 +1,4 @@
+import { buildApiUrl } from '@/app/lib/config';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const response = await fetch('http://127.0.0.1:8000/albums/bulk-delete', {
+    const response = await fetch(buildApiUrl('/albums/bulk-delete'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

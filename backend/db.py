@@ -34,16 +34,23 @@ def format_album(album: Dict[str, Any]) -> Dict[str, Any]:
         "description": album.get("description", ""),
         "images": [],
         "cover_image": None,
-        "image_count": 0,  # Initialize count
+        "image_count": 0,
         "createdAt": album["created_at"].isoformat() if "created_at" in album else None,
     }
 
     # Process images and generate fresh presigned URLs
     for image in album.get("images", []):
-        if "id" in image and "url" in image:
-            s3_key = unquote(image["url"].split("/")[-1].split("?")[0])
-            presigned_url = generate_presigned_url(s3_key)
-            formatted_album["images"].append({"id": image["id"], "url": presigned_url})
+        try:
+            if "id" in image and "url" in image:
+                s3_key = unquote(image["url"].split("/")[-1].split("?")[0])
+                presigned_url = generate_presigned_url(s3_key)
+                formatted_album["images"].append({
+                    "id": image["id"], 
+                    "url": presigned_url
+                })
+        except Exception:
+            # Skip problematic images instead of failing entirely
+            continue
 
     # Update cover image and count
     if formatted_album["images"]:
@@ -93,9 +100,11 @@ class S3Config:
             "AWS_SECRET_ACCESS_KEY"
         )
         aws_region = aws_region or os.getenv("AWS_REGION")
+        endpoint_url = os.getenv("S3_ENDPOINT_URL") 
 
         cls.client = boto3.client(
             "s3",
+            endpoint_url=endpoint_url, 
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
             region_name=aws_region,
@@ -149,38 +158,54 @@ def get_collection(name: str) -> AsyncIOMotorCollection:
     return MongoDB.collections[name]
 
 
-def generate_presigned_url(
-    s3_object_name: str, expiration: int = 3600, as_attachment: bool = False
-) -> str:
-    """
-    Generate a presigned URL for an S3 object.
 
-    :param s3_object_name: The name of the object in S3
-    :param expiration: Time in seconds for the presigned URL to remain valid
-    :return: Presigned URL as string
+# def generate_presigned_url(s3_object_name: str, expiration: int = 3600) -> str:
+#     try:
+#         url = S3Config.client.generate_presigned_url(
+#             'get_object',
+#             Params={
+#                 'Bucket': S3Config.get_bucket_name(),
+#                 'Key': s3_object_name,
+#             },
+#             ExpiresIn=expiration,
+#         )
+#         # Replace internal Docker network URL with localhost for frontend access
+#         if 'minio:9000' in url:
+#             url = url.replace('minio:9000', 'localhost:9000')
+#         logger.info(f"Generated presigned URL for {s3_object_name}: {url}")
+#         return url
+#     except Exception as e:
+#         logger.error(f"Error generating presigned URL: {str(e)}")
+#         raise
+
+def generate_presigned_url(s3_object_name: str, expiration: int = 3600, for_frontend: bool = True) -> str:
+    """
+    Generate a presigned URL for S3 object access.
+    
+    Args:
+        s3_object_name: The name/key of the S3 object
+        expiration: URL expiration time in seconds
+        for_frontend: If True, returns URL with localhost, if False, keeps internal minio URL
     """
     try:
-        params = {
-            "Bucket": S3Config.get_bucket_name(),
-            "Key": s3_object_name,
-        }
-        if as_attachment:
-            params["ResponseContentDisposition"] = (
-                f'attachment; filename="{os.path.basename(s3_object_name)}"'
-            )
-
-        presigned_url = s3_client.generate_presigned_url(
-            "get_object",
-            Params=params,
+        url = S3Config.client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': S3Config.get_bucket_name(),
+                'Key': s3_object_name,
+            },
             ExpiresIn=expiration,
         )
-        return presigned_url
+        
+        # Only replace minio:9000 with localhost:9000 for frontend access
+        if for_frontend and 'minio:9000' in url:
+            url = url.replace('minio:9000', 'localhost:9000')
+        
+        logger.info(f"Generated presigned URL for {s3_object_name}: {url}")
+        return url
     except Exception as e:
-        logger.error(
-            f"Error generating presigned URL for object {s3_object_name}: {str(e)}"
-        )
+        logger.error(f"Error generating presigned URL: {str(e)}")
         raise
-
 
 async def save_image(image_id: str, file_path: str, metadata: Dict[str, Any]) -> str:
     images_collection = get_collection("images")
@@ -427,7 +452,9 @@ def upload_file_to_s3(
         object_name = os.path.basename(file_path)
     try:
         S3Config.client.upload_file(file_path, S3Config.get_bucket_name(), object_name)
-        return f"https://{S3Config.get_bucket_name()}.s3.amazonaws.com/{object_name}"
+        endpoint_url = os.getenv("S3_ENDPOINT_URL", "http://minio:9000")
+        return f"{endpoint_url}/{S3Config.get_bucket_name()}/{object_name}"
+        # return f"https://{S3Config.get_bucket_name()}.s3.amazonaws.com/{object_name}"
     except Exception as e:
         logger.error(f"Error uploading to S3: {e}")
         return None
