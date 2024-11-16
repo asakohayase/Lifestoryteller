@@ -38,7 +38,7 @@
 
 **・Video Creation** : Generate videos from the generated photo albums.
 
-<img width="688" alt="Screenshot 2024-10-20 at 11 38 43 PM" src="https://github.com/user-attachments/assets/f333a73a-1ded-4326-86cb-aaf482679284">
+<img width="1125" alt="Screenshot 2024-11-16 at 1 03 42 PM" src="https://github.com/user-attachments/assets/87090845-d8a7-4fe3-9354-d1fea10970cc">
 <br />
 <br />
 
