@@ -355,13 +355,6 @@ async def get_album_by_id(album_id: str) -> Dict[str, Any]:
         if album.get("video_url"):
             video_filename = unquote(album["video_url"].split("/")[-1].split("?")[0])
             s3_video_key = f"generated-video/{video_filename}"
-            formatted_album["video_url"] = generate_presigned_url(s3_video_key)
-        else:
-            formatted_album["video_url"] = None
-
-        if album.get("video_url"):
-            video_filename = unquote(album["video_url"].split("/")[-1].split("?")[0])
-            s3_video_key = f"generated-video/{video_filename}"
             formatted_album["video_url"] = generate_presigned_url(s3_video_key, for_frontend=True)  # Make sure for_frontend is True
         else:
             formatted_album["video_url"] = None
@@ -421,7 +414,7 @@ async def create_video(album: dict):
                 "-i",
                 file_list_path,
                 "-vf",
-                "scale=1480:1110",  # Round up to even numbers
+                "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
                 "-vsync",
                 "vfr",
                 "-pix_fmt",
