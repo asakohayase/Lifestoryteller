@@ -59,66 +59,147 @@
 <!-- GETTING STARTED -->
 ## Getting Started
 
-To get a local copy up and running follow these simple example steps.
+### Prerequisites
+
+- Docker and Docker Compose
+- Git
+- Node.js (for local development)
 
 ### Installation
-   
-1. Clone the repo
-   ```sh
-   git clone https://github.com/asakohayase/Lifestoryteller
-   ```
-2. Install dependencies
-   ```sh
-   poetry install
-   npm install
-   ```
-   
-3. Create `.env` 
-   * frontend
-   ```js
-   MONGODB_URI=
-   S3_BUCKET_NAME=
-   BACKEND_URL=
-   ```
-   * backend
-   ```js
-   OPENAI_API_KEY=
-   MONGODB_URI=
-   AWS_ACCESS_KEY_ID=
-   AWS_SECRET_ACCESS_KEY=
-   AWS_REGION=
-   S3_BUCKET_NAME=
-   QDRANT_COLLECTION_NAME=
-   ```
 
-4. Activate the virtual environment
-   ```sh
-   poetry shell
-   ```
-5.  Set the path to the virtual environment to Python Interpreter
-6.  To run the app
-   
-   * Activate Qdrant
-   ```sh
-   docker volume create qdrant_data
-   docker run -p 6333:6333 -v qdrant_data:/qdrant/storage qdrant/qdrant
-   docker run -p 6333:6333 qdrant/qdrant
-   ```
-   * Activate MongoDB
-   ```sh
-   docker pull mongo
-   docker run -d -p 27017:27017 --name mongodb mongo
-   docker start mongodb
-   ```
-   * Activate uvicorn
-   ```sh
-   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-   ```
+1. Clone the repository and navigate to the directory:
+```bash
+git clone https://github.com/asakohayase/Lifestoryteller.git
+cd Lifestoryteller
+```
 
-   * Activate frontend
-   ```sh
-   npm run dev
-   ```
+2. Create `.env.frontend`:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+BACKEND_URL=http://backend:8000
+```
+
+3. Create `.env.backend`:
+```env
+# OpenAI Configuration
+OPENAI_API_KEY=your_openai_api_key
+
+# MongoDB Configuration
+MONGODB_URI=your_mongodb_uri  # Change your_mongodb_uri
+
+# MinIO (S3) Configuration
+AWS_ACCESS_KEY_ID=minio
+AWS_SECRET_ACCESS_KEY=minio123
+AWS_REGION=us-east-1
+S3_BUCKET_NAME=your-bucket-name  # Change your-bucket-name
+S3_ENDPOINT_URL=http://minio:9000
+
+# Qdrant Configuration
+QDRANT_HOST=qdrant
+QDRANT_PORT=6333
+QDRANT_COLLECTION_NAME=your_collection_name  # Change your_collection_name
+```
+
+### Running with Docker
+
+1. Build and start all services:
+```bash
+docker compose up --build
+```
+
+2. Or build and run in detached mode (background):
+```bash
+docker compose up -d --build
+```
+
+3. View running containers:
+```bash
+docker ps
+```
+
+4. View logs:
+```bash
+# All containers
+docker compose logs
+
+# Specific service
+docker compose logs backend
+docker compose logs frontend
+```
+
+5. Stop services:
+```bash
+docker compose down
+```
+
+### MinIO Setup (Required after first run)
+
+1. **Backend Configuration** (in `.env.backend`):
+```env
+# MinIO (S3) Configuration
+S3_ENDPOINT_URL=http://minio:9000  # API endpoint for file operations
+AWS_ACCESS_KEY_ID=minio
+AWS_SECRET_ACCESS_KEY=minio123
+S3_BUCKET_NAME=your-bucket-name
+```
+
+2. **Create Bucket using MinIO Console**:
+   - Access MinIO Console at http://localhost:9001 (Web management interface)
+   - Login with default credentials:
+     - Username: minio
+     - Password: minio123
+   - Create a new bucket matching your S3_BUCKET_NAME
+
+Note: The different ports are used for:
+- Port 9000: S3 API endpoint (used by the backend)
+- Port 9001: Web Console interface (used for bucket management)
+
+### Name Constraints
+
+When choosing names for your collections and bucket:
+
+1. Database Name:
+   - Lowercase letters, numbers, and underscores
+   - Example: `photo_gallery`, `my_family_photos`
+
+2. Bucket Name:
+   - Lowercase letters, numbers, hyphens
+   - Must start and end with letter or number
+   - Example: `family-photos`, `my-memories-2024`
+
+3. Qdrant Collection Name:
+   - Alphanumeric characters and underscores
+   - Example: `image_vectors`, `photo_embeddings`
+
+### Troubleshooting
+
+1. If containers aren't starting:
+```bash
+# Check container status
+docker ps -a
+
+# Check detailed logs
+docker compose logs
+```
+
+2. To reset data and start fresh:
+```bash
+# Stop containers and remove volumes
+docker compose down -v
+
+# Rebuild and start
+docker compose up --build
+```
+
+3. To restart a specific service:
+```bash
+docker compose restart backend
+```
+
+The application will be available at:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- MinIO Console: http://localhost:9001
    
 
 <!-- CONTRIBUTING -->
