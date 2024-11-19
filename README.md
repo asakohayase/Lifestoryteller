@@ -82,7 +82,7 @@ BACKEND_URL=http://backend:8000
 3. Create `.env.backend`:
 ```env
 # OpenAI Configuration
-OPENAI_API_KEY=your_openai_api_key
+OPENAI_API_KEY=your_openai_api_key  # Change your_openai_api_key
 
 # MongoDB Configuration
 MONGODB_URI=your_mongodb_uri  # Change your_mongodb_uri
